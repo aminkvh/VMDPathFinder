@@ -116,7 +116,7 @@ classification, not proof that individual solvent molecules use the route.
 Select a route and open **Lining** to inspect protein residues and HET groups in
 contact with it. **Show lining** creates a VMD representation; previous/next
 controls step through routes. **Show all** displays the routes that remain after
-the current filters.
+the current filters. The 3D view draws only the listed routes: a route hidden below the floor is not drawn until you show it.
 
 The lining window exports the selected route's lining data. The standard plot
 tabs and CSV exports operate on the selected tracked route. The exported

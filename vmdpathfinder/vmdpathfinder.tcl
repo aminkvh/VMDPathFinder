@@ -3865,11 +3865,10 @@ proc ::VMDPathFinder::refresh_tunnel_tab {} {
             if {[dict get $row seen] < $_floor && [dict get $row cid] ne $_selcid} { incr _nbelow }
         }
         if {!$_showall} {
+            set _listed [_tunnel_visible_cids]
             set _kept {}
             foreach row $rows {
-                if {[dict get $row seen] >= $_floor || [dict get $row cid] eq $_selcid} {
-                    lappend _kept $row
-                }
+                if {[dict exists $_listed [dict get $row cid]]} { lappend _kept $row }
             }
             set rows $_kept
         }
@@ -4879,8 +4878,9 @@ proc ::VMDPathFinder::_tunnel_sort_by {key} {
 proc ::VMDPathFinder::_tunnel_select_step {dir} {
     # Prev/next through the displayed rows - the same path _tunnel_select_row
     # takes. Steps over cids, not ranks: a rank can name a floor-hidden route
-    # with no row to highlight. _tunnel_candidates stays unfiltered; it answers
-    # what is DRAWN. Independent of tunnel_shown, like selection everywhere.
+    # with no row to highlight. What is DRAWN is _tunnel_candidates minus the
+    # clusters the list hides (_tunnel_hidden_by_list). Independent of
+    # tunnel_shown, like selection everywhere.
     variable state
     variable tunnel_results
     set frame [_tunnel_display_frame]
@@ -4931,6 +4931,39 @@ proc ::VMDPathFinder::_tunnel_display_frame {} {
 
 
 
+
+proc ::VMDPathFinder::_tunnel_visible_cids {} {
+    # The clusters the panel lists: every one when the Seen floor is off or
+    # "Show all" is ticked, else those at or above the floor plus the selected
+    # one. The 3D view draws the same set, so a route hidden from the list is
+    # never drawn behind the user's back.
+    variable state
+    set floor [_num_or tunnel_seen_floor 40 0]
+    set showall [expr {[info exists state(tunnel_list_show_all)] && $state(tunnel_list_show_all)}]
+    set selcid [expr {[info exists state(tunnel_selected_cid)] ? $state(tunnel_selected_cid) : ""}]
+    set out [dict create]
+    foreach row [_tunnel_cluster_rows] {
+        set cid [dict get $row cid]
+        if {$floor <= 0 || $showall || [dict get $row seen] >= $floor || $cid eq $selcid} {
+            dict set out $cid 1
+        }
+    }
+    return $out
+}
+
+proc ::VMDPathFinder::_tunnel_hidden_by_list {frame i listed} {
+    # 1 when clustering is on and the given tunnel of this frame belongs to a
+    # cluster the panel does not list, or to no tracked cluster at all while
+    # "Show all" is off.
+    variable state
+    variable tunnel_xcid
+    if {![info exists state(tunnel_cluster_on)] || !$state(tunnel_cluster_on)} { return 0 }
+    if {[info exists tunnel_xcid($frame,$i)]} {
+        return [expr {![dict exists $listed $tunnel_xcid($frame,$i)]}]
+    }
+    set showall [expr {[info exists state(tunnel_list_show_all)] && $state(tunnel_list_show_all)}]
+    return [expr {!$showall}]
+}
 
 proc ::VMDPathFinder::_tunnel_toggle_all_shown {} {
     # Master checkbox: set every TRACKED cluster's show/hide state to match -
@@ -22023,6 +22056,10 @@ proc ::VMDPathFinder::render_tunnels_for_frame {frame {draft 0}} {
     # With clustering on, draw ONE representative per cluster - the widest
     # bottleneck in it - rather than every route (see _tunnel_candidates).
     set candidates [_tunnel_candidates $frame]
+    # Clusters the panel lists: a route hidden below the Seen floor is not
+    # drawn either, or the picture and the list disagree.
+    set _listed [expr {[info exists state(tunnel_cluster_on)] && $state(tunnel_cluster_on) \
+        ? [_tunnel_visible_cids] : [dict create]}]
     # Draft (playback) keeps EVERY shown tunnel and thins each one instead of
     # drawing a subset, matching what HOLE's own draft does for its one
     # surface (_draft_render_frame draws every Nth triangle via
@@ -22055,6 +22092,7 @@ proc ::VMDPathFinder::render_tunnels_for_frame {frame {draft 0}} {
         # as the row-build call, so the two cannot disagree.
         _tunnel_sync_shown_from_cluster $frame $i
         _tunnel_sync_gear_from_cluster $frame $i
+        if {[_tunnel_hidden_by_list $frame $i $_listed]} { continue }
         if {[info exists tunnel_shown($i)] && !$tunnel_shown($i)} { continue }
         if {![file exists [file join $fd [format "tunnel_%02d.sph" $i]]]} { continue }
         lappend want $i

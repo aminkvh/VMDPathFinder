@@ -114,7 +114,7 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 | Within-frame cutoff | 3 Å | Distance threshold for within-frame route clustering |
 | Cross-frame maximum deviation | 12 Å | Largest geometric deviation accepted as one tracked route |
 | Ranks per frame | 10 | Highest-ranked routes admitted to cross-frame matching; `0` means all |
-| Seen floor | 40% | Minimum frame occupancy shown for a tracked route |
+| Seen floor | 40% | Share of the route-bearing frames a tracked route must reach to be listed and drawn; **Show all** lifts it |
 | Align trajectory | on | Fit frames before route matching |
 | Pre-mesh budget | 400 | Limit for eagerly prepared route meshes |
 | Draft detail | 1 | Tunnel surface sampling stride |
