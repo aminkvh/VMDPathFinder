@@ -34565,12 +34565,14 @@ proc ::VMDPathFinder::compute_hydro_profile {molid frame sph_file {facing_overri
     if {[llength $hvals] != [llength $centers]} {
         set hvals [compute_sphere_hydro $molid $frame $centers $facing_override $avg_override $_scheme]
     }
-    lassign [channel_axis_pca $centers] ux uy uz mx my mz
+    # Coordinate = HOLE's coord column: the plain projection onto the frame's
+    # axis, the same frame the Pore Profile and Ion & Water tabs use.
+    lassign [_hole_coord_dir [file dirname $sph_file] $centers] ux uy uz
     set triples {}
     set i 0
     foreach c $centers {
         lassign $c cx cy cz r
-        set coord [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
+        set coord [expr {$cx*$ux + $cy*$uy + $cz*$uz}]
         lappend triples [list $coord $r [lindex $hvals $i]]
         incr i
     }
@@ -59776,6 +59778,49 @@ proc ::VMDPathFinder::oriented_axis {centers} {
     return [list [expr {$s*$ux}] [expr {$s*$uy}] [expr {$s*$uz}] $mx $my $mz]
 }
 
+proc ::VMDPathFinder::_hole_coord_dir {run_dir centers} {
+    # Unit direction whose plain projection (no origin) reproduces HOLE's coord
+    # column for this frame: the frame's own persisted axis, else the run
+    # manifest's CVECT, else the oriented PCA direction of the centres.
+    set ax [_frame_axis_persisted $run_dir]
+    if {[llength $ax] != 6} { set ax [_manifest_axis $run_dir] }
+    if {[llength $ax] == 6} { return [lrange $ax 3 5] }
+    return [lrange [oriented_axis $centers] 0 2]
+}
+
+proc ::VMDPathFinder::_hydration_coord_offset {} {
+    # Hydration bins are built relative to their binning origin (CPOINT or the
+    # frame centroid). HOLE's coord column, which the Pore Profile and Ion & Water
+    # tabs show, is the plain projection onto the axis with no origin. Adding this
+    # offset (the origin's projection, averaged over the analysed frames) puts a
+    # bin coordinate into that same frame. Profiles saved before the field existed
+    # recover it from the stored axis when the origin was static, else 0.
+    variable hydration_data
+    if {$hydration_data eq ""} { return 0.0 }
+    if {[dict exists $hydration_data coord_offset]} {
+        set off [dict get $hydration_data coord_offset]
+        if {[string is double -strict $off]} { return $off }
+    }
+    set mode [expr {[dict exists $hydration_data axis_mode] ? [dict get $hydration_data axis_mode] : "pca"}]
+    if {$mode in {frame cpoint} && [dict exists $hydration_data axis] && \
+            [llength [dict get $hydration_data axis]] == 6} {
+        lassign [dict get $hydration_data axis] mx my mz ux uy uz
+        return [expr {$mx*$ux + $my*$uy + $mz*$uz}]
+    }
+    return 0.0
+}
+
+proc ::VMDPathFinder::_hydration_display_coords {} {
+    # hydration_data coords moved into HOLE's coord frame (see _hydration_coord_offset).
+    # Lookups from 3D points keep using the stored relative coords.
+    variable hydration_data
+    if {$hydration_data eq "" || ![dict exists $hydration_data coords]} { return {} }
+    set off [_hydration_coord_offset]
+    set out {}
+    foreach c [dict get $hydration_data coords] { lappend out [expr {$c + $off}] }
+    return $out
+}
+
 proc ::VMDPathFinder::_gz_at_z {coords energy z} {
     # Linear interpolation of G(z) (kcal/mol) at axis position z (Å) from
     # the hydration_data coords/energy lists. Returns "" when z is out of range.
@@ -59889,8 +59934,7 @@ proc ::VMDPathFinder::esp_profile {molid frame sph_file} {
     set out {}
     foreach c $centers e $esp {
         lassign $c cx cy cz r
-        set co [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
-        lappend out [list $co $r $e]
+        lappend out [list [expr {$cx*$ux + $cy*$uy + $cz*$uz}] $r $e]
     }
     set _res [lsort -real -index 0 $out]
     dict set _esp_profile_cache $_pkey $_res
@@ -59934,7 +59978,7 @@ proc ::VMDPathFinder::gz_profile {sph_file} {
         set co [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
         set g  [_gz_at_z $gz_coords $gz_energy $co]
         if {$g eq ""} { set g 0.0 }
-        lappend out [list $co $r $g]
+        lappend out [list [expr {$cx*$ux + $cy*$uy + $cz*$uz}] $r $g]
     }
     return [lsort -real -index 0 $out]
 }
@@ -60006,7 +60050,7 @@ proc ::VMDPathFinder::pfdens_profile {frame sph_file} {
         set co [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
         set g  [_pfdens_at_z $frame $co]
         if {$g eq ""} { set g 0.0 }
-        lappend out [list $co $r $g]
+        lappend out [list [expr {$cx*$ux + $cy*$uy + $cz*$uz}] $r $g]
     }
     return [lsort -real -index 0 $out]
 }
@@ -60063,7 +60107,7 @@ proc ::VMDPathFinder::dens_profile {sph_file} {
         set co  [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
         set val [_dens_at_z $dc $do $co]
         if {$val eq ""} { set val 0.0 }
-        lappend out [list $co $r $val]
+        lappend out [list [expr {$cx*$ux + $cy*$uy + $cz*$uz}] $r $val]
     }
     return [lsort -real -index 0 $out]
 }
@@ -60709,6 +60753,9 @@ proc ::VMDPathFinder::compute_hydration {} {
     set nfdata 0
     set nfwater 0
     set total_w 0
+    # Sum of the binning origin's projection onto the axis over the data frames:
+    # coord_offset below moves a bin coordinate into HOLE's coord frame.
+    set _offsum 0.0
     set nframes [llength $result_frames]
     # Per-frame density storage: list of dicts, one per processed frame.
     # Each dict: {frame <f> bins <dict bin->count>}
@@ -60824,6 +60871,7 @@ proc ::VMDPathFinder::compute_hydration {} {
             dict set _frame_radii $_rb [expr {[dict get $_frame_rsum $_rb] / double([dict get $_frame_rn $_rb])}]
         }
         incr nfdata
+        set _offsum [expr {$_offsum + $mx*$ux + $my*$uy + $mz*$uz}]
         # waters: pre-filter to the channel bbox so the scan stays cheap
         set m [expr {$maxr + 2.0}]
         set q "($wsel) and x > [expr {$mnx-$m}] and x < [expr {$mxx+$m}] and y > [expr {$mny-$m}] and y < [expr {$mxy+$m}] and z > [expr {$mnz-$m}] and z < [expr {$mxz+$m}]"
@@ -61446,6 +61494,7 @@ proc ::VMDPathFinder::compute_hydration {} {
         anchor_occ_lo $_anchor_olo anchor_occ_hi $_anchor_ohi anchor_note $_gzero_note \
         anchor_status $_anchor_status \
         axis_mode $_axis_mode axis $fixed_axis \
+        coord_offset [expr {$nfdata > 0 ? $_offsum / double($nfdata) : 0.0}] \
         perframe_occ $perframe_occ perframe_frames $perframe_frames]
     # Persist the computed profile next to the results so it can be reloaded on a later
     # import without recomputing (load_hydration_for_root). The dict is a plain string.
@@ -61661,7 +61710,7 @@ proc ::VMDPathFinder::draw_hydration_tab {} {
     # resize); geometry math below uses the measured $cw/$ch instead.
     $cv delete all
 
-    set coords [dict get $hydration_data coords]
+    set coords [_hydration_display_coords]
     set energy_view [expr {[info exists state(hydration_view)] && $state(hydration_view) eq "energy"}]
     set hmap_view  [expr {[info exists state(hydration_view)] && $state(hydration_view) in {heatmap heatmap_g}}]
     # Per-frame heatmap quantity: "heatmap" = density (rho/rho_bulk, dens ramp),
@@ -62394,11 +62443,12 @@ proc ::VMDPathFinder::export_hydration_csv {} {
         puts $fh "# floored_fraction = share of this bin's frames pinned at the dry-density floor."
     }
     set _dcol [expr {$_chap ? ",density_nm3" : ""}]
+    puts $fh "# channel_coord: HOLE's coord, the projection onto the axis (same frame as the Pore Profile CSV)"
     if {$has_std} {
         set _semcols [expr {$_has_sem ? ",free_energy_sem_kcal_mol,n_eff_frames,floored_fraction" : ""}]
         puts $fh "channel_coord,rel_density${_dcol},rel_density_std,free_energy_kcal_mol,free_energy_std_kcal_mol,waters_per_frame${_semcols}"
         set _i -1
-        foreach c [dict get $hydration_data coords] o [dict get $hydration_data occupancy] \
+        foreach c [_hydration_display_coords] o [dict get $hydration_data occupancy] \
                  osd [dict get $hydration_data occ_std] \
                  g [dict get $hydration_data energy] gsd [dict get $hydration_data energy_std] \
                  n [dict get $hydration_data countspf] {
@@ -62417,7 +62467,7 @@ proc ::VMDPathFinder::export_hydration_csv {} {
         }
     } else {
         puts $fh "channel_coord,rel_density${_dcol},free_energy_kcal_mol,waters_per_frame"
-        foreach c [dict get $hydration_data coords] o [dict get $hydration_data occupancy] \
+        foreach c [_hydration_display_coords] o [dict get $hydration_data occupancy] \
                  g [dict get $hydration_data energy] n [dict get $hydration_data countspf] {
             set _d [expr {$_chap ? ",[format %.4f [expr {$o * $_f}]]" : ""}]
             puts $fh "[format %.3f $c],[format %.4f $o]${_d},[format %.4f $g],[format %.4f $n]"
@@ -65393,14 +65443,15 @@ proc ::VMDPathFinder::heatmap_prop_bundle_fast {ncols nbins scheme} {
         dict set fastpath_sphere_cache "$plot_data_version|$frame|$scheme|$_fp_avg|$state(hydro_facing)|[hydro_shell_value]|[lining_dist_thresh_value]|[hydrophob_kde_bandwidth_value]|[hydro_property_scale_key]" \
             [lrange $hvals 0 [expr {$_ncent - 1}]]
         if {[dict size $fastpath_sphere_cache] > 4000} { set fastpath_sphere_cache [dict create] }
-        lassign [channel_axis_pca $centers] ux uy uz mx my mz
+        set _rd [expr {[dict exists $results $frame run_dir] ? [dict get $results $frame run_dir] : ""}]
+        lassign [_hole_coord_dir $_rd $centers] ux uy uz
         # Build (z, h) pairs and sort by z - _heatmap_resample_row requires
         # monotonic input (same as compute_hydro_profile's lsort -real -index 0).
         set pairs {}
         set i 0
         foreach c $centers {
             lassign $c cx cy cz r
-            set z [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
+            set z [expr {$cx*$ux + $cy*$uy + $cz*$uz}]
             lappend pairs [list $z [lindex $hvals $i]]
             incr i
         }
@@ -65508,12 +65559,13 @@ proc ::VMDPathFinder::heatmap_prop_bundle_hydro3d {ncols nbins scheme} {
         if {![dict exists $hydro3d_props_cache $ckey]} { incr n_skip; continue }
         set hvals [dict get $hydro3d_props_cache $ckey]
         if {[llength $hvals] != [llength $centers]} { incr n_skip; continue }
-        lassign [channel_axis_pca $centers] ux uy uz mx my mz
+        set _rd [expr {[dict exists $results $frame run_dir] ? [dict get $results $frame run_dir] : ""}]
+        lassign [_hole_coord_dir $_rd $centers] ux uy uz
         set pairs {}
         set i 0
         foreach c $centers {
             lassign $c cx cy cz r
-            set z [expr {($cx-$mx)*$ux + ($cy-$my)*$uy + ($cz-$mz)*$uz}]
+            set z [expr {$cx*$ux + $cy*$uy + $cz*$uz}]
             lappend pairs [list $z [lindex $hvals $i]]
             incr i
         }
@@ -65588,7 +65640,7 @@ proc ::VMDPathFinder::heatmap_pfdens_bundle {ncols nbins} {
     }
     set pf_matrix [dict get $hydration_data perframe_occ]
     set pf_frames [dict get $hydration_data perframe_frames]
-    set coords    [dict get $hydration_data coords]
+    set coords    [_hydration_display_coords]
     set nf [llength $pf_matrix]
     set nz [llength $coords]
     if {$nf < 1 || $nz < 2} { return [dict create nframes 0] }

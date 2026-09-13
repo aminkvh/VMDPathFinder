@@ -55,7 +55,8 @@ before saving.
 Hydration CSV export always writes the mean density/free-energy profile,
 independent of the currently displayed hydration view. Per-frame matrix and
 hydrophobicity plot names must not be interpreted as extra columns in that
-profile file.
+profile file. Its `channel_coord` column is HOLE's `coord`, the same frame as
+the Pore Profile CSV's `z_coordinate`.
 
 ## Tunnel lining
 

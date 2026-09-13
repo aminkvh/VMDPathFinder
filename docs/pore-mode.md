@@ -183,6 +183,11 @@ Before interpreting a result:
 
 ## 6. Use the analysis tabs
 
+Every tab that plots along the channel uses HOLE's `coord`: the projection of
+a point onto `CVECT`, with no origin subtracted. `CPOINT` therefore sits at
+its own projection, not at 0, and the same value means the same place in the
+Pore Profile, Hydration, Ion & Water, Over Time, and the CSV exports.
+
 ### Pore Profile
 
 <p align="center"><img src="images/pore_profile_panel.png" alt="Pore Profile tab: radius along the channel with property fill" width="720"></p>
