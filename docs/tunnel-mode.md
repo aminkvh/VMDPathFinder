@@ -104,7 +104,8 @@ The bottleneck-row clustering control sets its geometric cutoff.
 
 Cross-frame clustering assigns a persistent route identity to matching routes
 from aligned frames. It is controlled by maximum geometric deviation, maximum
-ranks considered per frame, and the minimum **Seen** percentage. Restricting
+ranks considered per frame, and the minimum **Seen** percentage (the **Seen ≥**
+field on the Interior row of the panel). Restricting
 ranks reduces cost but can hide a route that is poorly ranked in some frames.
 
 Treat a low-Seen cluster cautiously in Mean Profile or trend plots: the average
@@ -131,7 +132,12 @@ Histogram, property, lining, and Ion & Water views. Trends plots the selected
 route's bottleneck radius, length or tube volume across the trajectory - pick
 which with the **Metric** control beside the Export menu. Ion & Water measures the
 selected route along itself, as distance along the route and distance from
-it, so a bent tunnel plots as it is. It does not provide
+it, so a bent tunnel plots as it is. Mean Profile and Histogram put each
+frame's route on a distance-from-bottleneck axis and keep only the bins that
+at least half of the route-bearing frames reach; the title counts the trimmed
+bins, and the CSV exports still carry them. Because the narrowest point can sit
+at either end of a short route, this window is often much shorter than a
+single frame's profile, and the average is smoother than any one frame. It does not provide
 tunnel hydration, tunnel ellipse fitting, or pore-mode bulk-to-bulk permeation.
 Water free-energy and density properties require a pore-mode hydration result.
 

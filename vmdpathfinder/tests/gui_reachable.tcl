@@ -58,7 +58,7 @@ set P $w.sidebar.nb.tunnel
 set CONTROLS {
     sel_e align_b sp_e sp_box.com sp_box.cor mole_h.gear
     mp.mole_probe_e mp.mole_interior_e mp.mole_originradius_e mp.mole_minlen_e
-    mp.mole_bottleneck_e
+    mp.mole_bottleneck_e mp.seen_e
 }
 
 set missing {}
@@ -106,7 +106,7 @@ set ADV_CONTROLS {
     mole_maxorigins_e mole_bottletol_e mole_maxsim_e
     fbl_c mw_c
     mole_exit_e mole_path_a_e mole_path_b_e exonly_c
-    clus_e sfe
+    clus_e
     align_c xfe
     sbar_c hydro3d_c
 }
@@ -123,8 +123,11 @@ report "all [llength $ADV_CONTROLS] advanced Tunnel controls exist in the gear p
 report "tunnel_seen_floor's code default is 40 (not the old 10)" \
        [expr {[info exists ::VMDPathFinder::state(tunnel_seen_floor)] && $::VMDPathFinder::state(tunnel_seen_floor) == 40}] \
        "(got: [expr {[info exists ::VMDPathFinder::state(tunnel_seen_floor)] ? $::VMDPathFinder::state(tunnel_seen_floor) : {unset}}])"
-report "the gear popup's Seen floor field is bound to state(tunnel_seen_floor)" \
-       [expr {[winfo exists $ADVD.sfe] && [$ADVD.sfe cget -textvariable] eq "::VMDPathFinder::state(tunnel_seen_floor)"}]
+report "the panel's Seen floor field (Interior row) is bound to state(tunnel_seen_floor)" \
+       [expr {[winfo exists $P.mp.seen_e] && [$P.mp.seen_e cget -textvariable] eq "::VMDPathFinder::state(tunnel_seen_floor)"}]
+report "...and it sits on the Interior row" \
+       [expr {[dict get [grid info $P.mp.seen_e] -row] == [dict get [grid info $P.mp.mole_interior_e] -row]}]
+report "the gear popup no longer carries a Seen floor field" [expr {![winfo exists $ADVD.sfe]}]
 destroy $ADVD
 
 # The HOLE panel must not have acquired a scrollbar it does not need.
@@ -4571,10 +4574,9 @@ if {[winfo exists $_hp]} {
         [expr {[_adrow $_ad fbl_c] == [_adrow $_ad strict_c] \
             && [_adcol $_ad strict_c] > [_adcol $_ad fbl_c]}] \
         "(fbl r[_adrow $_ad fbl_c]c[_adcol $_ad fbl_c] strict r[_adrow $_ad strict_c]c[_adcol $_ad strict_c])"
-    report "Max deviation shares the Seen floor row" \
-        [expr {[_adrow $_ad sfl] == [_adrow $_ad mdev_l] \
-            && [_adcol $_ad mdev_l] > [_adcol $_ad sfe]}] \
-        "(seen r[_adrow $_ad sfl]c[_adcol $_ad sfl] maxdev r[_adrow $_ad mdev_l]c[_adcol $_ad mdev_l])"
+    report "Max deviation starts its row (the Seen floor moved to the panel)" \
+        [expr {[_adcol $_ad mdev_l] == 0}] \
+        "(maxdev r[_adrow $_ad mdev_l]c[_adcol $_ad mdev_l])"
     report "Align trajectory sits BELOW Draft detail" \
         [expr {[_adrow $_ad align_c] > [_adrow $_ad dsl]}] \
         "(align r[_adrow $_ad align_c] draft r[_adrow $_ad dsl])"
@@ -4589,7 +4591,7 @@ if {[winfo exists $_hp]} {
     report "the Advanced dialog stays under 560 px tall" \
         [expr {[winfo reqheight $_ad] <= 560}] "([winfo reqheight $_ad] px)"
     set _adunmapped {}
-    foreach _adw {fbl_c strict_c sfl sfe mdev_l mdev_e dsl dse align_c spm_c sbar_c \
+    foreach _adw {fbl_c strict_c mdev_l mdev_e dsl dse align_c spm_c sbar_c \
                   mole_exit_e mole_path_a_e mole_path_b_e exonly_c} {
         if {![winfo ismapped $_ad.$_adw]} { lappend _adunmapped $_adw }
     }

@@ -248,6 +248,8 @@ The gear also controls the residue shell used by the bottleneck-residue report.
 
 Summarizes radii along the channel in 50 axial bins. Choose the mean, minimum,
 or maximum radius. The bars report position, not a probability distribution.
+Bins reached by too few frames are trimmed on the same rule as Mean Profile,
+so the two plots span the same range.
 To keep the plot readable, unusually tall terminal bars can be visually
 truncated and marked; CSV values are unchanged.
 

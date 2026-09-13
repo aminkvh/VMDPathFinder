@@ -3851,6 +3851,7 @@ proc ::VMDPathFinder::refresh_tunnel_tab {} {
     # the checkbox beside the list) bypasses the floor entirely. 0 disables the
     # floor outright (same convention as MinTunnelLength's own _num_or use).
     set _floor [_num_or tunnel_seen_floor 40 0]
+    variable _tunnel_seen_floor_applied $_floor
     set _showall [expr {[info exists state(tunnel_list_show_all)] && $state(tunnel_list_show_all)}]
     # Establish the pin BEFORE the filter reads it. On the first refresh after
     # a run the pin is still empty, so the selected-route exemption below
@@ -4307,6 +4308,19 @@ proc ::VMDPathFinder::_tunnel_ensure_clusters {} {
     # only ever renders one frame, and _tunnel_list_rows ensures its own frame
     # anyway, so this is now just the eager half for the frame on screen.
     _tunnel_ensure_clusters_for [_tunnel_display_frame]
+}
+
+proc ::VMDPathFinder::_tunnel_seen_floor_changed {} {
+    # Enter or leaving the Seen floor entry: relist and redraw only when the
+    # applied value actually changed.
+    variable state
+    variable _tunnel_seen_floor_applied
+    set v [_num_or tunnel_seen_floor 40 0]
+    if {[info exists _tunnel_seen_floor_applied] && $_tunnel_seen_floor_applied == $v} { return }
+    set _tunnel_seen_floor_applied $v
+    variable tunnel_xclusters
+    if {![info exists tunnel_xclusters] || [llength $tunnel_xclusters] == 0} { return }
+    _tunnel_showall_clicked
 }
 
 proc ::VMDPathFinder::_tunnel_showall_clicked {} {
@@ -7344,6 +7358,18 @@ proc ::VMDPathFinder::build_tunnel_panel {parent} {
         add_tooltip $parent.mp.$_k\_e $_tip
         if {$_mp_col == 0} { set _mp_col 2 } else { set _mp_col 0; incr _mp_row }
     }
+    # Seen floor: a display filter over the tracked routes, kept on the Interior
+    # row so it is in view without opening the gear.
+    label $parent.mp.seen_l -text "Seen ≥"
+    entry $parent.mp.seen_e -textvariable ::VMDPathFinder::state(tunnel_seen_floor) -width 3
+    label $parent.mp.seen_p -text "%"
+    grid $parent.mp.seen_l -row 0 -column 4 -sticky w -padx {0 4} -pady 2
+    grid $parent.mp.seen_e -row 0 -column 5 -sticky w -pady 2
+    grid $parent.mp.seen_p -row 0 -column 6 -sticky w -padx {1 0} -pady 2
+    add_tooltip $parent.mp.seen_e "Hide tunnel-list rows seen in fewer than this percentage of frames (default 40, 0 =\
+        off). The selected route always shows. \"Show all\" beside the list bypasses this."
+    bind $parent.mp.seen_e <Return> {::VMDPathFinder::_tunnel_seen_floor_changed}
+    bind $parent.mp.seen_e <FocusOut> {::VMDPathFinder::_tunnel_seen_floor_changed}
     # "Cluster within frame" sits on the SAME ROW as Bottleneck. The five
     # MOLE parameters fill 2.5 rows, so the column pair beside Bottleneck is
     # free - and this control belongs with them visually rather than as one of
@@ -7383,13 +7409,13 @@ proc ::VMDPathFinder::build_tunnel_panel {parent} {
     # the same physical route on only 27% of frame steps, so there is no
     # useful "off" for it to have.
 
-    # The 40% Seen floor (state(tunnel_seen_floor), Advanced Settings) hides
+    # The 40% Seen floor (state(tunnel_seen_floor), Interior row above) hides
     # routes seen in only a handful of frames by default - on a real 50-frame,
     # 394-cluster run most rows are noise from that view. This is the escape
     # hatch; text carries the hidden COUNT (refresh_tunnel_tab keeps it
     # current) so the floor's effect is discoverable without opening Advanced
-    # Settings. The control itself now lives on the bottom row, below the list
-    # it filters (see $parent.tunctl.showall).
+    # Settings. Show all itself lives on the bottom row, below the list it
+    # filters (see $parent.tunctl.showall).
 
     button $parent.tunlist_toggle -text "\u25BC Hide tunnel list" -anchor w -relief flat \
         -command ::VMDPathFinder::toggle_tunnel_list
@@ -7616,18 +7642,10 @@ proc ::VMDPathFinder::show_tunnel_advanced_settings {} {
     add_tooltip $d.clus_e "How far apart two pathways must be (Å) to count as different tunnels."
     incr row
 
-    # Lives HERE, not in the MOLE block above: it is a clustering control and
-    # the user went looking for it beside Threshold, which is exactly right.
-    label $d.sfl -text "Seen floor %"
-    entry $d.sfe -textvariable ::VMDPathFinder::state(tunnel_seen_floor) -width 7
-    grid $d.sfl -row $row -column 0 -sticky w -padx {8 4} -pady 1
-    grid $d.sfe -row $row -column 1 -sticky w -padx {0 14} -pady 1
-    add_tooltip $d.sfe "Hide tunnel-list rows seen in fewer than this percentage of frames (default 40, 0 =\
-        off). The selected route always shows. \"Show all\" beside the list bypasses this."
     label $d.mdev_l -text "Max deviation"
     entry $d.mdev_e -textvariable ::VMDPathFinder::state(tunnel_cluster_maxdev) -width 7
-    grid $d.mdev_l -row $row -column 2 -sticky w -padx {0 4} -pady 1
-    grid $d.mdev_e -row $row -column 3 -sticky w -padx {0 8} -pady 1
+    grid $d.mdev_l -row $row -column 0 -sticky w -padx {8 4} -pady 1
+    grid $d.mdev_e -row $row -column 1 -sticky w -padx {0 14} -pady 1
     add_tooltip $d.mdev_e "Å; default 12, 0 = off. Routes are grouped by their mean separation, so two can match for most of their length and still part at one point. This caps how far apart they may get."
     incr row
 
@@ -7724,12 +7742,9 @@ proc ::VMDPathFinder::show_tunnel_advanced_settings {} {
     _trace_once ::VMDPathFinder::state(tunnel_start) write [list ::VMDPathFinder::_sync_point_marker tunnel_start show_tunnel_start_marker]
     _trace_once ::VMDPathFinder::state(show_tunnel_start_marker) write [list ::VMDPathFinder::_sync_point_marker tunnel_start show_tunnel_start_marker]
 
-    # Every field here except Seen floor only takes effect on the next tunnel
-    # search run, unlike HOLE/Mean Profile's gear popups whose settings drive
-    # a live redraw - so apply_cmd is refresh_tunnel_tab, not a re-run. Seen
-    # floor is a pure DISPLAY filter over an already-computed cluster set, so
-    # Apply/Set default re-showing the list with the new floor immediately is
-    # correct and costs nothing a re-run would (no MOLE, no re-clustering).
+    # Every field here only takes effect on the next tunnel search run, unlike
+    # HOLE/Mean Profile's gear popups whose settings drive a live redraw - so
+    # apply_cmd is refresh_tunnel_tab, not a re-run.
     grid [_settings_btn_row $d ::VMDPathFinder::refresh_tunnel_tab] -row $row -column 0 -columnspan 3 -sticky w -padx 8 -pady {8 8}
     _center_toplevel $d
 }
@@ -56877,9 +56892,17 @@ proc ::VMDPathFinder::draw_histogram_tab {args} {
     set idx [expr {$agg eq "Min" ? 2 : ($agg eq "Max" ? 3 : 0)}]
     set zs {}; set vals {}
     set xmin 1e20; set xmax -1e20
+    # Same coverage floor as the Mean Profile, so both plots span the same
+    # bins: a bar carried by one frame of a hundred is not a summary.
+    set _covmin [expr {[dict exists $data cov_min_frames] ? [dict get $data cov_min_frames] : 0}]
+    set _ntrim 0
     for {set b 0} {$b < $nbins} {incr b} {
         set s [lindex $stats $b]
         if {$s eq {}} continue
+        if {$_covmin > 0 && [llength [lindex [dict get $data bins] $b]] < $_covmin} {
+            incr _ntrim
+            continue
+        }
         set v [lindex $s $idx]
         set z [expr {$zmin + ($b + 0.5) * $zstep}]
         if {$state(hist_flip_z)} { set z [expr {-1.0 * $z}] }
@@ -56921,6 +56944,9 @@ proc ::VMDPathFinder::draw_histogram_tab {args} {
     set nf [dict get $data nframes]
     set swap $state(hist_swap)
     set title "$agg pore radius per bin ($nf frame(s))"
+    if {$_ntrim > 0} {
+        append title " · $_ntrim thin bin(s) trimmed (<[expr {int($_covmin)}] frames)"
+    }
     # Tunnel mode bins on signed distance from the SELECTED tunnel's own
     # bottleneck (see _tunnel_signed_profile), not a shared channel
     # coordinate - "Chan. coord" would be misleading there.
@@ -59634,14 +59660,18 @@ proc ::VMDPathFinder::export_histogram_csv {} {
     set stats [dict get $data stats_raw]
     set zmin [dict get $data zmin]; set zstep [dict get $data zstep]; set nbins [dict get $data nbins]
     set _coord_col [expr {$_tunnel ? "signed_distance_from_bottleneck" : "coord"}]
+    set _covmin [expr {[dict exists $data cov_min_frames] ? [dict get $data cov_min_frames] : 0}]
     set fh [open $fn w]
-    puts $fh "$_coord_col,mean,min,max,count"
+    puts $fh "# plotted_in_gui=0 marks a bin backed by fewer than [format %.4g $_covmin] frames - exported, but trimmed from the plot."
+    puts $fh "$_coord_col,mean,min,max,count,frames,plotted_in_gui"
     for {set b 0} {$b < $nbins} {incr b} {
         set s [lindex $stats $b]
         if {$s eq {}} continue
         lassign $s mean std mn mx cnt
         set z [expr {$zmin + ($b + 0.5) * $zstep}]
-        puts $fh "[format %.4f $z],[format %.4f $mean],[format %.4f $mn],[format %.4f $mx],$cnt"
+        set _nfr [llength [lindex [dict get $data bins] $b]]
+        set _shown [expr {($_covmin > 0 && $_nfr < $_covmin) ? 0 : 1}]
+        puts $fh "[format %.4f $z],[format %.4f $mean],[format %.4f $mn],[format %.4f $mx],$cnt,$_nfr,$_shown"
     }
     close $fh
     set state(status) "Histogram exported to $fn"
