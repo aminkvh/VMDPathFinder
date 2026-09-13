@@ -1,6 +1,6 @@
 # SHA-256 manifest - VMDPathFinder 1.0.1 numerical freeze
-# generated: 2026-09-12T05:50:44Z
-# code snapshot: git commit 2b14f727b14627bc33b81e4db55eb7cd4d477a96 (timing stages re-run 2026-09-12 on an idle machine, stock reference rebuilt at -O2; correctness rows unchanged)
+# generated: 2026-09-13T16:41:05Z
+# code snapshot: git commit 0fbab735b9fae99438b0b4adb96e6103129cbfe3 (Tier-2 stages endtoend/scaling/tunnel-clustering-real + figures re-run 2026-09-13 after the job-pool changes; Tier-1 rows from the 2026-09-12 run)
 # scope: all files in paper/benchmarks/results/ + the benchmark inputs the env stage checksummed (see checksum_manifest.log)
 #
 ## results/ (raw outputs, processed CSVs, canonical doc, figures)
@@ -11,22 +11,22 @@
 cb2fbc4aac753ec1bbfbe497e41519c6deb93cbdc6158ec47743a9edb2049cdd  ./chap_correlation.csv
 eb5e7650a1cb4f8b4481614719a26bfc9b707282351d750291c4b2d910685876  ./checksum_manifest.log
 61879ae50cfe30d0f8c988c00cbd70548cd2d084ca29825d223224deb40717c5  ./ellipse_parity.log
-aaa8178931ed815ccaf40477e592accd1f76cc02029087cedfacd248cebe1003  ./endtoend.csv
+9fd7ee5427cb58d27bbd5acd849aae91568737f418c9dc1b26f661ca309c95f0  ./endtoend.csv
 69f6251884bddca9f41bb4f6fb085d0f9dc3bcbc219dc6521ac4875a159c4087  ./env_manifest.txt
-93c784e07c63f618247533f54aef2a8dd3fe63442da585e94dc930e445400e11  ./fig_accuracy.eps
-f9228ac02304252e38f3dfaa7dbc4cd1067b03d08d3a190d425faf265dd81ce8  ./fig_accuracy.pdf
-b804305ee31259365c3c51fe650a3ba3b15dfc40cce920467c864484ad5c201e  ./fig_accuracy.png
-d9a5f0925eb25799b1b0d5603b5811ef60e3923b1089fd90f4ca02e5135c8753  ./fig_overview.pdf
+833d14099c0f2588367004775d25bf925631947ef44d050aa1093358a6813721  ./fig_accuracy.eps
+ad75c0d4c951a4c9654120927a40bd58fec6a6143630f166072098272dc588e6  ./fig_accuracy.pdf
+c33dd3d47f25b17758589ac27eade1f9f607a240d666fcfc023410f19e334ceb  ./fig_accuracy.png
+465d9d880caa01b51782a4737ed086b8fe5e26ea4dd4e3d08d0f0a898cdc96a2  ./fig_overview.pdf
 802e218b8ed29eba7c0dc20437b196143ed4db42f93de1336d7e5810f4b4ff29  ./fig_overview.png
-369e56b7e2375514ede66100dc093b328c4ada35c6845ad35fb65eb1c6b53759  ./fig_performance.eps
-58d1b066797f4edbfd1a385203c5c66b8739a22715ad6afec59855eda90e7e12  ./fig_performance.pdf
-6c48a0b33cb827173f365cb9e85a613529f07666e58774b4730700342f485c4f  ./fig_performance.png
-d3782e7c5f8e40461b0280ea3bf503041281277339fd58145abcb8ccc3823053  ./fig_performance_provenance.txt
-5773610302a5a8297fc698a19c6b867924782d95e0ef033eac05225008f199fc  ./fig_pipeline_stages.eps
-6b6e3425bbdf2631015969fb66588bd931e195582d0e07ca5d7fdbb1ebbf1f87  ./fig_pipeline_stages.pdf
-989546ac5a41be08c79e5780b106f75da8fc3dad235e76c1149daf43a09623eb  ./fig_pipeline_stages.png
-9a33738932e5ff6d6cc209eabd6f14ed61c0da1e59ec2862d821b22d91b2c3e0  ./fig_pipeline_stages_provenance.txt
-bc0cbdc4837c39844fa0bc715f50115e585bdfc560f6c1bb09d0cd5eb556acf4  ./FINAL_NUMERICAL_RESULTS.md
+b003a1a76167bb5342d9197a3afc1545ec375ed592fd619963f78e7fc06cf8ea  ./fig_performance.eps
+4c586685f51e559593430eb8822bca3f8da1815ccfd2115267bc2148499d41f2  ./fig_performance.pdf
+422bc966c6fae9febe52b8b000cf2ecee60b4f6d7ac101579185989c8fb9513e  ./fig_performance.png
+36c5991eef1e197807de3561beea21cc0371297ec68a3d2ceaf84a4b7d4dcb4b  ./fig_performance_provenance.txt
+d529c01a9e788f05f822b5ae57f5f3cca90dcd8a8a54b12d30f8205a841fe2c7  ./fig_pipeline_stages.eps
+b5fcb824ce221492315b093b4fcf7d92c5b95a8eec6287492a8ab80c1bb25412  ./fig_pipeline_stages.pdf
+030af69ff31aab10d09faa78f3e56caef887a39511c2ec92331b87b8d29632f8  ./fig_pipeline_stages.png
+a535a96a66635528c156803ce09ebe83b9c1389a0b5feb52225eca2c9af4a65c  ./fig_pipeline_stages_provenance.txt
+fa73a49407a5e2153d296130db7be93e20981276369cd14c46f671c114af6552  ./FINAL_NUMERICAL_RESULTS.md
 5382481bb3c7d86dbc791cc4d8de7874a7047ea1f21fb8d8579235a1050c1dc4  ./gate_surface.log
 ea0651668570fb63e3d1ecd2fed1b4921fd41a397c2b84d587ceb51ba603dd0f  ./hydro_qco_parity.log
 3724bc73557b1001b92a1fa4d24b347fe75983a12bdd3704ec2d1fea3f8791bc  ./o2_rebuild.csv
@@ -35,11 +35,11 @@ ea0651668570fb63e3d1ecd2fed1b4921fd41a397c2b84d587ceb51ba603dd0f  ./hydro_qco_pa
 043915f937e94896491228282f1dda4ddc307f0c75596518d957907ad749e810  ./pore_tcl_fallback_parity.log
 7d1fbafb1f359cf03e4f4a314455d8d43a8280d1ad416551db07743ae80aed6a  ./profile_identity.csv
 943983d54a4d932e6db35852622bb5ec42f0f317add9bc8a8a26bc33577dde8f  ./regression.log
-0c69ed04729b9fb619a272d4832fe8e51926ff6649bb7cd9f851a1cf4b285bae  ./scaling.csv
+3e2db2ec1e463a0dee04ac06bfb44c5646e91110e8f76dba7e78cb62abef5e34  ./scaling.csv
 5ad1bb01a5c9fca7a03e7eef49410c2d7876da746eff7c2da2fc4b02023c1424  ./sos_scaling.csv
 2901736042b5d97efbade6a7cc167ac86a85458f942cb33513b57e0c142351cb  ./sos_sweep.log
 8940b0b9d829e9dd7b87224614853298f8f3ee6eec873fb7833e4e63c52a1a4a  ./tool_versions.txt
-ea7867c5f647648a8078f65fd8fb11c983d3a004b9e99c92059d8652854bf927  ./tunnel_clustering_real_pool.csv
+748da87183552ac2c9e234240b96dd80ea3f1ef090e9bb8ca0bf431f204bc70d  ./tunnel_clustering_real_pool.csv
 2788a6345de213d7afbf4962b8c997a021450db8e71318a2d07de4a7e9dd5de8  ./tunnel_clustering_scaling.csv
 07c854a354d0dc852dbf0675dd4232b5a5109f8a9fad54925505adcf5311dc82  ./tunnel_tcl_vs_compiled.csv
 e4f98a73a9229f4babb6e58f509f2d89ff0650c306df5c0f27046447b81cc4d7  ./tunnel_vs_caver_auto_threshold.csv

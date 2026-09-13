@@ -1,13 +1,13 @@
 # generated_by: reproduce.sh stage=tunnel-clustering-real
-# utc: 2026-09-07T00:03:30Z
-# git: 061f7d7+dirty
+# utc: 2026-09-13T16:39:47Z
+# git: 0fbab73+dirty
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
 # nproc: 16  OMP_NUM_THREADS: unset
 # repeats: 3
-# loadavg_at_start: 5.19 4.53 4.05  allow_noisy: 1
-# load_at_start: 5.19 4.53 4.05
-# bin: sos_triangle_fast sha256:dd1bb0bf240c5238 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# loadavg_at_start: 0.70 1.30 1.22  allow_noisy: 0
+# load_at_start: 0.70 1.30 1.22
+# bin: sos_triangle_fast sha256:0519bbfacfd71728 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # pool: the 50-frame trajectory tunnel output (fixtures/tunnel50_frozen); only the clustering stage is timed
 # compiled = sos_triangle_fast --tunnel-cluster; tcl_fallback = the plugin's UPGMA path; cluster_size_multisets_match = both paths give the same cluster sizes
 pool_pathways,compiled_s,compiled_nclusters,tcl_s,tcl_nclusters,cluster_size_multisets_match,speedup
-1837,0.774182,394,18.01559,394,yes,23.270484201389337
+1837,0.593755,394,16.444331,394,yes,27.69548214330826

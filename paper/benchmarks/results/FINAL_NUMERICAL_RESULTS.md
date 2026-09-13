@@ -1,5 +1,13 @@
 # FINAL NUMERICAL RESULTS - VMDPathFinder 1.0.1 freeze, Nelder-Mead search + marching-cubes mesher
 
+**Refresh 2026-09-13 (commit `0fbab73`, tag v1.0.2 + 5):** the three Tier-2 stages
+(`endtoend`, `scaling`, `tunnel-clustering-real`) and `figures` were re-run after the job
+pools changed - one OpenMP thread per worker, worker shells reused, `nproc` and the
+coordinate identity cached. Only those stages run the plugin's pools; every Tier-1 row
+below (reference tools, standalone engines, identity gates) is from the 2026-09-12 run
+and its code is unchanged. The reference rows re-timed 5-7% faster this run (idle
+machine), so ratios, not seconds, are the comparison.
+
 Generated: 2026-09-07T01:14:34Z
 Benchmarked commit: `061f7d75dafd9c4bbd3126b6ff1176844359eb49` (branch main; working tree CLEAN at run time
 except these regenerated result files). The commits after it, up to `71d9ae9` where this
@@ -28,6 +36,7 @@ no OpenMP.
 2. `bash reproduce.sh --tier1 --tier2 --data vmdpathfinder --allow-noisy --skip <the 7 stages above>` - the timed stages and `figures`, recorded in every CSV header as allow_noisy: 1 with the load at start
 3. `bash reproduce.sh --allow-noisy --stage endtoend --stage figures --data vmdpathfinder` - the end-to-end stage again after a harness fix: VMD drops empty `-args` entries, so the optional arguments now travel as `-`. Before the fix the trailing keep-PDB flag arrived in the job-count slot, which means the `vmdpathfinder_accel_pdb` row of the 2026-09-03 freeze (6.48 s) timed a SERIAL 1-job run with the packed record, not a keep-PDB run; this run measures what the row says.
 4. `bash reproduce.sh --allow-noisy --stage chap` - CHAP replication (its inputs are the checked-in CHAP 0.9.1 example-02 outputs)
+5. 2026-09-13: `bash reproduce.sh --stage endtoend --stage scaling --stage tunnel-clustering-real --stage figures --data vmdpathfinder` on an idle machine (load < 0.5, no `--allow-noisy`), after the job-pool changes in `0fbab73`
 
 Correctness gate BEFORE benchmarking: `vmdpathfinder/tests/run_tests.sh` = ALL 23
 GROUPS PASSED and `tests/unit/run_unit_tests.sh` = 14 passed on `71d9ae9`; the tier-1 `regress` stage
@@ -58,58 +67,60 @@ rows keep the accelerated binaries and switch the plugin's own engines on:
 
 | deliverable | tool | median s | repetitions (s) |
 |---|---|---|---|
-| calc | bare_hole_serial | 6.1398 | 6.1611, 6.1346, 6.1398 |
-| calc | bare_hole_parallel | 0.7987 | 0.7987, 0.7973, 0.8117 |
-| calc | mdahole2 | 93.8384 | 94.2621, 93.8384, 93.8282 |
-| calc | vmdpathfinder_stock | 1.4582 | 1.4562, 1.4582, 1.4723 |
-| calc | vmdpathfinder_accel | 1.0047 | 0.9715, 1.0188, 1.0047 |
-| calc | vmdpathfinder_accel_pdb | 1.4255 | 1.4672, 1.4175, 1.4255 |
-| calc | vmdpathfinder_nm | 1.0269 | 1.0144, 1.0269, 1.0298 |
-| surface | bare_hole_serial | 42.6641 | 42.6641, 41.9096, 42.7141 |
-| surface | bare_hole_parallel | 5.2479 | 5.1730, 5.2575, 5.2479 |
-| surface | mdahole2 | 130.9052 | 130.9052, 130.7011, 131.6016 |
-| surface | vmdpathfinder_stock | 6.7874 | 6.7874, 6.7734, 6.8478 |
-| surface | vmdpathfinder_accel | 2.6224 | 2.6676, 2.6224, 2.5101 |
-| surface | vmdpathfinder_accel_pdb | 2.8904 | 2.9487, 2.8904, 2.8691 |
-| surface | vmdpathfinder_csg | 2.0426 | 2.1177, 2.0426, 2.0033 |
-| surface | vmdpathfinder_nm_csg | 2.0750 | 2.1006, 2.0630, 2.0750 |
+| calc | bare_hole_serial | 5.8632 | 5.8641, 5.8422, 5.8632 |
+| calc | bare_hole_parallel | 0.6898 | 0.6769, 0.6914, 0.6898 |
+| calc | mdahole2 | 87.6012 | 88.1991, 87.4695, 87.6012 |
+| calc | vmdpathfinder_stock | 1.2233 | 1.2459, 1.2157, 1.2233 |
+| calc | vmdpathfinder_accel | 0.8382 | 0.8382, 0.8447, 0.8323 |
+| calc | vmdpathfinder_accel_pdb | 1.2169 | 1.2413, 1.2136, 1.2169 |
+| calc | vmdpathfinder_nm | 0.8728 | 0.8796, 0.8727, 0.8728 |
+| surface | bare_hole_serial | 40.7361 | 40.5792, 40.8553, 40.7361 |
+| surface | bare_hole_parallel | 4.5521 | 4.5337, 4.5521, 4.6534 |
+| surface | mdahole2 | 123.5350 | 122.4749, 123.5350, 126.9547 |
+| surface | vmdpathfinder_stock | 5.8884 | 5.8376, 5.8884, 5.9578 |
+| surface | vmdpathfinder_accel | 2.0506 | 2.0595, 2.0506, 2.0132 |
+| surface | vmdpathfinder_accel_pdb | 2.4354 | 2.4484, 2.4150, 2.4354 |
+| surface | vmdpathfinder_csg | 1.2705 | 1.3065, 1.2632, 1.2705 |
+| surface | vmdpathfinder_nm_csg | 1.2957 | 1.2997, 1.2912, 1.2957 |
 
 **Derived ratios (full precision -> rounding):**
 
-- calc vs mdahole2 (accelerated HOLE search): 93.3994 -> **93.4x**
-- calc vs mdahole2 (Nelder-Mead search): 91.3803 -> **91.4x**
-- calc, Nelder-Mead vs accelerated HOLE search: 0.9784 -> **0.98x**
-- calc vs bare serial HOLE: 6.1111 -> **6.11x**
-- calc vs xargs control: 0.7950 -> **0.79x**
-- surface vs mdahole2 (accelerated sph_process + sos_triangle): 49.9181 -> **49.9x**
-- surface vs mdahole2 (Nelder-Mead + marching cubes): 63.0868 -> **63.1x**
-- surface, marching cubes vs sos_triangle on the same HOLE search: 1.2839 -> **1.28x**
-- surface, Nelder-Mead + marching cubes vs accelerated HOLE path: 1.2638 -> **1.26x**
-- surface vs bare serial: 16.2691 -> **16.27x**
-- surface vs xargs control: 2.0012 -> **2.00x**
-- surface accel vs plugin's own stock: 2.5882 -> **2.59x**
+- calc vs mdahole2 (accelerated HOLE search): 104.5111 -> **104.5x**
+- calc vs mdahole2 (Nelder-Mead search): 100.3680 -> **100.4x**
+- calc, Nelder-Mead vs accelerated HOLE search: 0.9604 -> **0.96x**
+- calc vs bare serial HOLE: 6.9950 -> **6.99x**
+- calc vs xargs control: 0.8230 -> **0.82x**
+- surface vs mdahole2 (accelerated sph_process + sos_triangle): 60.2433 -> **60.2x**
+- surface vs mdahole2 (marching cubes): 97.2334 -> **97.2x**
+- surface vs mdahole2 (Nelder-Mead + marching cubes): 95.3423 -> **95.3x**
+- surface, marching cubes vs sos_triangle on the same HOLE search: 1.6140 -> **1.61x**
+- surface, Nelder-Mead + marching cubes vs accelerated HOLE path: 1.5826 -> **1.58x**
+- surface vs bare serial: 19.8655 -> **19.9x**
+- surface vs bare serial (marching cubes): 32.0630 -> **32.1x**
+- surface vs xargs control: 2.2199 -> **2.22x**
+- surface accel vs plugin's own stock: 2.8715 -> **2.87x**
 
 ## Worker-count sweep (Tier 2) - `scaling.csv`
 
 | jobs | median s | speedup vs 1 job |
 |---|---|---|
-| 1 | 6.4691 | 1.0000 |
-| 2 | 3.4569 | 1.8714 |
-| 3 | 2.4861 | 2.6021 |
-| 4 | 2.0010 | 3.2329 |
-| 5 | 1.6799 | 3.8509 |
-| 6 | 1.6736 | 3.8654 |
-| 7 | 1.5773 | 4.1014 |
-| 8 | 1.3395 | 4.8295 |
-| 9 | 1.2086 | 5.3526 |
-| 10 | 1.1281 | 5.7345 |
-| 11 | 1.0990 | 5.8864 |
-| 12 | 1.2111 | 5.3415 |
-| 13 | 1.0482 | 6.1716 |
-| 14 | 1.0465 | 6.1817 |
-| 15 | 1.0123 | 6.3905 |
+| 1 | 5.4984 | 1.0000 |
+| 2 | 2.9800 | 1.8451 |
+| 3 | 2.1587 | 2.5471 |
+| 4 | 1.7531 | 3.1364 |
+| 5 | 1.4248 | 3.8591 |
+| 6 | 1.2727 | 4.3203 |
+| 7 | 1.1700 | 4.6995 |
+| 8 | 1.0549 | 5.2122 |
+| 9 | 0.9832 | 5.5924 |
+| 10 | 0.9345 | 5.8838 |
+| 11 | 0.9073 | 6.0602 |
+| 12 | 0.8974 | 6.1270 |
+| 13 | 0.8718 | 6.3070 |
+| 14 | 0.8593 | 6.3987 |
+| 15 | 0.8446 | 6.5101 |
 
-15-worker headline: **1.0123 s**, **6.39x**.
+15-worker headline: **0.8446 s**, **6.51x**.
 
 ## Triangulation-density sweep (9HNR frame 0) - `sos_scaling.csv`
 
@@ -148,7 +159,7 @@ Stage-only band **10.5-13.6x**; complete-command band **18.7-24.4x**.
 
 Compiled vs Tcl tunnel engine (search): 1BL8 173.4x; 1MXT_noHET 231.4x - `tunnel_tcl_vs_compiled.csv`.
 Cross-frame clustering on the real 50-frame pool (1837 pathways), the kernel now answered by the resident mesher process:
-compiled 0.774 s vs Tcl 18.02 s = **23.3x**,
+compiled 0.594 s vs Tcl 16.44 s = **27.7x** (2026-09-13 refresh; 0.774 s / 18.02 s = 23.3x on 2026-09-12),
 cluster multisets identical (yes).
 
 ## CHAP replication - `chap_correlation.csv` (CHAP 0.9.1, example-02, 11 frames)
@@ -200,16 +211,18 @@ stock sos_triangle overflows above dotden ~12; always carry this caveat).
 
 ## Comparison with the 2026-09-03 freeze (commit 07790cc)
 
-| headline | 2026-09-03 | this run |
-|---|---|---|
-| calc vs mdahole2 (accelerated HOLE search) | 99.1 | 93.40 |
-| surfaces vs mdahole2 (accelerated HOLE path) | 54.8 | 49.92 |
-| 15-worker speedup | 6.96 | 6.39 |
-| triangulation, density 40 | 72.0 | 73.40 |
-| MOLE 2 fold, 1BL8 | 14.28 | 13.69 |
-| CAVER stage-only, 2.0 A | 10.54 | 10.54 |
-| cross-frame clustering compiled vs Tcl | 26.5 | 23.27 |
-| CHAP min-radius r | 0.998 | 1.00 |
+| headline | 2026-09-03 | 2026-09-12 | 2026-09-13 refresh |
+|---|---|---|---|
+| calc vs mdahole2 (accelerated HOLE search) | 99.1 | 93.40 | 104.51 |
+| surfaces vs mdahole2 (accelerated HOLE path) | 54.8 | 49.92 | 60.24 |
+| surfaces vs mdahole2 (marching cubes) | - | 64.09 | 97.23 |
+| marching cubes vs sos_triangle, 15-worker pool | - | 1.28 | 1.61 |
+| 15-worker speedup | 6.96 | 6.39 | 6.51 |
+| triangulation, density 40 | 72.0 | 73.40 | (Tier 1, not re-run) |
+| MOLE 2 fold, 1BL8 | 14.28 | 13.69 | (Tier 1, not re-run) |
+| CAVER stage-only, 2.0 A | 10.54 | 10.54 | (Tier 1, not re-run) |
+| cross-frame clustering compiled vs Tcl | 26.5 | 23.27 | 27.70 |
+| CHAP min-radius r | 0.998 | 1.00 | (Tier 1, not re-run) |
 
 The reference tools (mdahole2, bare HOLE, MOLE 2, CAVER, CHAP) and the stock
 build are unchanged; movements in those rows are run-to-run spread. New this
@@ -223,6 +236,23 @@ from these exact CSVs; the stage's own agreement check passed (`FIG_RESULT
 PASS`, see `fig_performance_provenance.txt`). `docs/images/
 performance_summary.png` is a copy of the PNG.
 
-Nelder-Mead search and marching-cubes mesher, 15-worker pool (`endtoend.csv`):
-search 0.98x the accelerated HOLE search; mesher 1.28x the accelerated
-`sph_process` + `sos_triangle` path; both 1.26x. Not in Figure S2.
+## Nelder-Mead search and marching-cubes mesher: step timings vs pool throughput
+
+The 15-worker pool pins every job to one OpenMP thread and adds per-frame fixed
+costs (coordinate write, worker hand-off, job script, parse), so it cannot show a
+search engine that costs 88-120 ms a frame. Step timings on one GABA-A frame
+(`protein or glycan`, 27,660 atoms, the benchmark's own system, medians of 3;
+commands in the session notes, not in `reproduce.sh`):
+
+| step | HOLE / sos_triangle | plugin engine, 1 thread | plugin engine, 8 threads |
+|---|---|---|---|
+| pore search (circular) | 0.120 s (Monte Carlo) | 0.083 s (1.45x) | 0.036 s (3.3x) |
+| surface | 0.089 s (sph_process + sos_triangle, serial) | 0.060 s (1.5x) | 0.022 s (4.0x) |
+
+Profiles agree to Monte Carlo noise: identical minimum radius (1.770 A), rms 0.059 A
+over 519 slices. In the pool (`endtoend.csv`, 15 workers): marching cubes
+1.61x the accelerated `sph_process` + `sos_triangle` path; Nelder-Mead
+0.96x the accelerated HOLE search (no change - HOLE is not the pool's
+bottleneck); both engines 1.58x. Single-frame latency (run + surface, one job, all
+cores): Monte Carlo + sos_triangle 380 ms, Nelder-Mead + marching cubes 271 ms.
+Not in Figure S2.
