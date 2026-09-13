@@ -4324,6 +4324,9 @@ proc ::VMDPathFinder::_tunnel_showall_clicked {} {
     }
     set _t0 [clock milliseconds]
     refresh_tunnel_tab
+    # The 3D view draws only the listed routes, so it changes with the list.
+    set fr [_tunnel_display_frame]
+    if {$fr ne "" && ![_tunnel_landed_is_unsearched]} { catch {render_tunnels_for_frame $fr} }
     set _ms [expr {[clock milliseconds] - $_t0}]
     if {$_ms > 1000} {
         set state(status) [format "Route list rebuilt in %.1f s. Showing it again is fast." \
