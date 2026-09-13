@@ -132,12 +132,14 @@ Histogram, property, lining, and Ion & Water views. Trends plots the selected
 route's bottleneck radius, length or tube volume across the trajectory - pick
 which with the **Metric** control beside the Export menu. Ion & Water measures the
 selected route along itself, as distance along the route and distance from
-it, so a bent tunnel plots as it is. Mean Profile and Histogram put each
-frame's route on a distance-from-bottleneck axis and keep only the bins that
-at least half of the route-bearing frames reach; the title counts the trimmed
-bins, and the CSV exports still carry them. Because the narrowest point can sit
-at either end of a short route, this window is often much shorter than a
-single frame's profile, and the average is smoother than any one frame. It does not provide
+it, so a bent tunnel plots as it is. Over Time, Mean Profile, Histogram and the
+mean tube put each frame's route on one axis: distance along its own centreline
+from the route's start point, the convention CAVER, MOLE and CHAP use. Mean
+Profile, Histogram and the mean tube keep only the stretch that at least half
+of the route-bearing frames reach (roughly the median route length); the title
+counts the trimmed bins and the CSV exports still carry them, marked. This
+floor is this plugin's own rule: CAVER paints uncovered stretches as unknown
+and CHAP resamples every frame onto one grid. It does not provide
 tunnel hydration, tunnel ellipse fitting, or pore-mode bulk-to-bulk permeation.
 Water free-energy and density properties require a pore-mode hydration result.
 

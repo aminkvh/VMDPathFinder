@@ -2852,9 +2852,9 @@ and counts crossings of the constriction. PBC-safe."
     # The wall curve's caption used to carry this explanation inline, which made
     # the figure chatty. It is real information - the curve is a trajectory MEAN
     # per slice, so at the narrowest point it reads systematically wider than
-    # Mean Profile's bottleneck-anchored minimum (measured 0.18-0.26 A on a
-    # 394-cluster fixture) - so it moved here rather than being dropped.
-    add_tooltip $fb.vwm "Occupancy %: where ions spend their time.\nPassage: one line per ion that entered the pore, coloured by direction if it crossed.\nCount vs frame: how many are inside at each frame.\nOpenings: traffic through each lateral opening (Connolly only).\n\nThe wall curve here is a per-slice mean, not bottleneck-anchored like Mean Profile, so the narrowest point reads slightly wider."
+    # the per-frame bottleneck radius (measured 0.18-0.26 A on a 394-cluster
+    # fixture) - so it moved here rather than being dropped.
+    add_tooltip $fb.vwm "Occupancy %: where ions spend their time.\nPassage: one line per ion that entered the pore, coloured by direction if it crossed.\nCount vs frame: how many are inside at each frame.\nOpenings: traffic through each lateral opening (Connolly only).\n\nThe wall curve here is a per-slice mean, so the narrowest point reads slightly wider than the per-frame bottleneck."
     menubutton $fb.spm -textvariable ::VMDPathFinder::state(ion_flow_species_disp) \
         -menu $fb.spm.m -relief raised -indicatoron 1 -width 6
     menu $fb.spm.m -tearoff 0
@@ -5287,54 +5287,36 @@ proc ::VMDPathFinder::_tunnel_profile_series {tuple} {
 }
 
 proc ::VMDPathFinder::_tunnel_signed_profile {tuple} {
-    # Like _tunnel_profile_series, but re-centered on the tunnel's OWN
-    # bottleneck: 0 at the narrowest point, negative toward the origin,
-    # positive toward the far end.
-    #
-    # The distance axis is _tunnel_profile_series' CUMULATIVE CHORD LENGTH along
-    # the centreline's own points, so it follows the path's real bends - it is
-    # not a projection onto a straight axis, and needs no equivalent of HOLE's
-    # single-axis assumption.
-    #
-    # WHICH tunnel to average is resolved via the cross-frame cluster
-    # this is about WHERE along the
-    # path to average. Neither raw distance-from-origin nor a 0-1 length
-    # fraction lines the constriction up across frames - a route's far
-    # endpoint and its bottleneck's distance-from-origin both vary widely
-    # frame to frame, so either would average physically unrelated positions
-    # into one bin. Anchoring on the bottleneck itself is self-aligning: "at
-    # the narrowest point" is the one thing every frame's route actually has
-    # in common, which is also the feature Over Time/Mean Profile/Histogram
-    # exist to show.
+    # _tunnel_profile_series' cumulative chord length along the centreline,
+    # 0 at the route's start point. This is the coordinate CAVER, MOLE and
+    # CHAP plot a route on: every frame's route begins at the same origin,
+    # so one bin is one stretch of the same protein in every frame, and the
+    # coverage falls off only toward the exit as shorter routes end. The
+    # earlier bottleneck-anchored axis put each frame's narrowest sphere at
+    # 0 whether it sat at the cavity end or the exit, which manufactured a
+    # V at zero and left only a few angstroms covered by most frames.
     lassign [_tunnel_profile_series $tuple] dists radii
-    set n [llength $radii]
-    if {$n == 0} { return [list {} {}] }
-    set bidx 0; set bmin [lindex $radii 0]
-    for {set i 1} {$i < $n} {incr i} {
-        set r [lindex $radii $i]
-        if {$r < $bmin} { set bmin $r; set bidx $i }
-    }
-    set b0 [lindex $dists $bidx]
-    set signed {}
-    foreach d $dists { lappend signed [expr {$d - $b0}] }
-    return [list $signed $radii]
+    return [list $dists $radii]
 }
 
-proc ::VMDPathFinder::_tunnel_mean_member_series {tuple} {
+proc ::VMDPathFinder::_tunnel_mean_member_series {tuple {reverse 0}} {
     # Like _tunnel_signed_profile, but keeps x/y/z per sample too - the 2D
     # curve only ever needed radius, but averaging a TUBE needs position.
-    # Bottleneck-anchoring is copy-identical (same min-radius index) so the
-    # tube's own s=0 lines up with what the 2D Mean Profile curve
-    # (_tunnel_collect_binned_radii) already calls the bottleneck - the two
-    # must never disagree about where "the constriction" is.
-    # Returns {signed xs ys zs rs}, or "" for a tuple too short to matter.
+    # $reverse walks the points from the far end, for a member whose engine
+    # emitted them exit-first (see _tunnel_mean_centerline). The distance
+    # axis is identical to the 2D curve's, so the tube's s and the plot's s
+    # never disagree. Returns {signed xs ys zs rs}, or "" for a tuple too
+    # short to matter.
     if {$tuple eq ""} { return "" }
     set pts [lindex $tuple 4]
     set n [expr {[llength $pts] / 4}]
     if {$n < 2} { return "" }
+    set order {}
+    for {set i 0} {$i < $n} {incr i} { lappend order $i }
+    if {$reverse} { set order [lreverse $order] }
     set xs {}; set ys {}; set zs {}; set rs {}; set dists {}
     set px ""; set py ""; set pz ""; set d 0.0
-    for {set i 0} {$i < $n} {incr i} {
+    foreach i $order {
         set b [expr {$i*4}]
         set x [lindex $pts $b]; set y [lindex $pts [expr {$b+1}]]
         set z [lindex $pts [expr {$b+2}]]; set r [lindex $pts [expr {$b+3}]]
@@ -5344,15 +5326,7 @@ proc ::VMDPathFinder::_tunnel_mean_member_series {tuple} {
         lappend xs $x; lappend ys $y; lappend zs $z; lappend rs $r; lappend dists $d
         set px $x; set py $y; set pz $z
     }
-    set bidx 0; set bmin [lindex $rs 0]
-    for {set i 1} {$i < $n} {incr i} {
-        set r [lindex $rs $i]
-        if {$r < $bmin} { set bmin $r; set bidx $i }
-    }
-    set b0 [lindex $dists $bidx]
-    set signed {}
-    foreach dd $dists { lappend signed [expr {$dd - $b0}] }
-    return [list $signed $xs $ys $zs $rs]
+    return [list $dists $xs $ys $zs $rs]
 }
 
 proc ::VMDPathFinder::_tunnel_mean_interp {pairs s} {
@@ -5385,7 +5359,7 @@ proc ::VMDPathFinder::_tunnel_mean_centerline {cid {nsamp 100}} {
     # surface). Returns {pts nmem svals nflip} - pts is flat
     # "x y z r x y z r ..." ready for _tunnel_render_centers/
     # write_stock_sph_file, nmem the member count actually averaged, svals the
-    # signed-distance-from-bottleneck coordinate of each emitted point (one
+    # distance-from-start coordinate of each emitted point (one
     # per x/y/z/r group, for property coloring - see _tunnel_mean_property_
     # spheres), nflip how many members needed the orientation flip below - or
     # "" when fewer than 2 members are available.
@@ -5401,18 +5375,15 @@ proc ::VMDPathFinder::_tunnel_mean_centerline {cid {nsamp 100}} {
     #     swapped relative to the others would average its "before" against
     #     another's "after" - collapsed or knotted geometry, not a tube. Each
     #     member's own end-to-end vector (last point minus first, in the
-    #     tuple's OWN point order - independent of bottleneck-anchoring) is
-    #     dotted against the first member processed (the reference); a
-    #     negative dot means "runs opposite the reference", fixed by
-    #     negating that member's signed-distance AXIS (not its point order -
-    #     the bottleneck anchor is already orientation-independent, so only
-    #     which side counts as "toward origin" needs to flip).
-    #  2. COVERAGE: s=0 (the bottleneck) is within EVERY member's own range
-    #     by construction, so restricting to "the s-range at least half the
-    #     members cover" is just walking outward from 0 to the ceil(n/2)-th
-    #     nearest end on each side - one long member (measured 7.8-28.9 A
-    #     spread on a real cluster) cannot single-handedly set the tube's
-    #     tails.
+    #     tuple's OWN point order) is dotted against the first member
+    #     processed (the reference); a negative dot means "runs opposite the
+    #     reference", fixed by walking that member's points from its other
+    #     end so its s=0 is the same start as everyone else's.
+    #  2. COVERAGE: s=0 (the start) is within EVERY member's own range, so
+    #     restricting to "the s-range at least half the members cover" is
+    #     walking out from 0 to the length the ceil(n/2)-th shortest member
+    #     reaches - one long member (measured 7.8-28.9 A spread on a real
+    #     cluster) cannot single-handedly set the tube's tail.
     #  3. RESAMPLE: each of nsamp evenly-spaced s within that range is
     #     linearly interpolated from every member that still covers it there,
     #     and x/y/z/r are averaged independently across whichever members
@@ -5439,9 +5410,9 @@ proc ::VMDPathFinder::_tunnel_mean_centerline {cid {nsamp 100}} {
             lassign $ref_vec rvx rvy rvz
             set dot [expr {$ex*$rvx + $ey*$rvy + $ez*$rvz}]
             if {$dot < 0} {
-                set flipped {}
-                foreach s $signed { lappend flipped [expr {-$s}] }
-                set signed $flipped
+                set ser [_tunnel_mean_member_series $t 1]
+                if {$ser eq ""} { continue }
+                lassign $ser signed xs ys zs rs
                 incr nflip
             }
         }
@@ -5496,8 +5467,8 @@ proc ::VMDPathFinder::_tunnel_mean_centerline {cid {nsamp 100}} {
 }
 
 proc ::VMDPathFinder::_tunnel_collect_binned_radii {nbins} {
-    # Tunnel-mode counterpart of collect_binned_radii: pools (signed distance
-    # from bottleneck, radius) samples from the SELECTED CLUSTER across every
+    # Tunnel-mode counterpart of collect_binned_radii: pools (distance from
+    # the route start, radius) samples from the SELECTED CLUSTER across every
     # frame it has a tunnel in, into the SAME dict shape (zmin/zmax/zstep/
     # nbins/nframes/bins/stats/stats_raw) so Histogram and Mean Profile's
     # existing rendering code needs no change past the data source and axis
@@ -5561,10 +5532,10 @@ proc ::VMDPathFinder::_tunnel_collect_binned_radii {nbins} {
     }
     set stats     [bin_stats $bins]
     set stats_raw [bin_stats $bins_raw]
-    # zmin/zmax above span the UNION of every frame's tunnel, and this axis is
-    # BOTTLENECK-relative, so the members only overlap fully near s=0 - one long
-    # frame stretches the axis for all of them. _draw_mean_profile_body trims by
-    # cov_min_frames and, absent that key, trims NOTHING.
+    # zmin/zmax above span the UNION of every frame's tunnel: every member
+    # starts at s=0 and the long ones stretch the axis for all of them.
+    # _draw_mean_profile_body trims by cov_min_frames and, absent that key,
+    # trims NOTHING.
     #
     # The floor is HALF the contributing frames, which is the rule
     # _tunnel_mean_centerline already applies to the mean SURFACE ("the s-range
@@ -5572,8 +5543,7 @@ proc ::VMDPathFinder::_tunnel_collect_binned_radii {nbins} {
     # the tube describe the same object: measured on a 47-frame cluster the
     # surface is 30.11 A and the median frame's tunnel 30.14 A, while an
     # unrestricted axis ran 74.03 A and HOLE's own 5% floor still left 66.63 A.
-    # HOLE mode keeps 5%: its axis is the pore's own, not bottleneck-aligned, so
-    # its members do not fall away from a shared centre the same way.
+    # HOLE mode keeps 5%: its axis is the pore's own and every frame spans it.
     set _covmin [expr {int(ceil($nframes / 2.0))}]
     if {$_covmin < 2} { set _covmin 2 }
     set _cl -1; set _ch -1
@@ -6031,7 +6001,7 @@ proc ::VMDPathFinder::draw_tunnel_heatmap {} {
         $cv create text $x $y -text [format "%.1f" $zval] -anchor e -font {Helvetica 8}
     }
     ::VMDPathFinder::_cv_vtext $cv [expr {$margin_l - 42}] [expr {$margin_t + $plot_h / 2}] \
-        -text "Dist. from bottleneck (Å)" -anchor center -font {Helvetica 8 bold}
+        -text "Dist. from start (Å)" -anchor center -font {Helvetica 8 bold}
     set _what [expr {$_hprop ne "" ? [scheme_display_label $_hprop] : "radius"}]
     set hm_title [expr {$id ne "" ? "Tunnel $id $_what over Time" : "Tunnel $_what over Time"}]
     $cv create text [expr {$margin_l + $plot_w / 2}] 12 \
@@ -55155,7 +55125,7 @@ proc ::VMDPathFinder::export_tunnel_heatmap_csv {} {
     # The axis header carries the quantity too, in the SAME cell rather than an
     # extra column: a bare matrix of numbers does not say whether it holds
     # radii or a property, and the file can be read far from its filename.
-    set hdr "signed_distance_from_bottleneck (values:\
+    set hdr "distance_from_start (values:\
  [expr {$_hprop ne "" ? $_hprop : {radius_angstrom}}])"
     foreach f $valid_frames { append hdr ",$f" }
     puts $fh $hdr
@@ -56593,7 +56563,7 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
     # Tunnel mode bins on signed distance from the SELECTED tunnel's own
     # bottleneck (see _tunnel_signed_profile) - "Chan. coord" would be
     # misleading there.
-    set coord_lbl [expr {$tunnel_mode ? "Dist. from bottleneck (\u00c5)" : "Chan. coord (\u00c5)"}]
+    set coord_lbl [expr {$tunnel_mode ? "Dist. from start (\u00c5)" : "Chan. coord (\u00c5)"}]
     # Under CONNOLLY the radius is Requiv - the radius of a circle with the same
     # cross-sectional AREA, not an inscribed sphere.
     # CONNOLLY and CAPSULE both report an equal-area equivalent radius, not an
@@ -56950,7 +56920,7 @@ proc ::VMDPathFinder::draw_histogram_tab {args} {
     # Tunnel mode bins on signed distance from the SELECTED tunnel's own
     # bottleneck (see _tunnel_signed_profile), not a shared channel
     # coordinate - "Chan. coord" would be misleading there.
-    set coord_lbl [expr {$tunnel_mode ? "Dist. from bottleneck (\u00c5)" : "Chan. coord (\u00c5)"}]
+    set coord_lbl [expr {$tunnel_mode ? "Dist. from start (\u00c5)" : "Chan. coord (\u00c5)"}]
     # Default = coord on X with vertical bars; swapped = coord on Y with
     # horizontal bars (channel reads vertically).
     if {$swap} {
@@ -57004,7 +56974,7 @@ proc ::VMDPathFinder::export_mean_profile_csv {} {
     # _export_fig_stem is shared with the EPS/JPG figure export (kept untouched
     # so figure names don't change) and is not mode-aware, so $_modetag below
     # keeps a HOLE mean profile and a tunnel one (binned on a different axis -
-    # signed distance from bottleneck, not channel coord) from offering the
+    # distance from the route start, not channel coord) from offering the
     # identical filename.
     set _modetag [expr {$_tunnel ? "tunnel" : "hole"}]
     set fn [tk_getSaveFile -title "Export mean profile CSV" -defaultextension .csv \
@@ -57016,7 +56986,7 @@ proc ::VMDPathFinder::export_mean_profile_csv {} {
     set zmin [dict get $data zmin]; set zstep [dict get $data zstep]; set nbins [dict get $data nbins]
     set _range_note [expr {$mean_key ne "" ? " range=$mean_key" : ""}]
     set _coord_col [expr {[analysis_mode] eq "tunnel" \
-        ? "signed_distance_from_bottleneck" : "coord"}]
+        ? "distance_from_start" : "coord"}]
     # EVERY populated bin, including the thin ones the PLOT trims (see
     # collect_binned_radii's cov_lo/cov_hi). Trimming a bin nothing much reached
     # is a readability call for a picture; leaving it out of exported data would
@@ -59659,7 +59629,7 @@ proc ::VMDPathFinder::export_histogram_csv {} {
     # Histogram export uses the raw-observation stats, matching the on-screen tab.
     set stats [dict get $data stats_raw]
     set zmin [dict get $data zmin]; set zstep [dict get $data zstep]; set nbins [dict get $data nbins]
-    set _coord_col [expr {$_tunnel ? "signed_distance_from_bottleneck" : "coord"}]
+    set _coord_col [expr {$_tunnel ? "distance_from_start" : "coord"}]
     set _covmin [expr {[dict exists $data cov_min_frames] ? [dict get $data cov_min_frames] : 0}]
     set fh [open $fn w]
     puts $fh "# plotted_in_gui=0 marks a bin backed by fewer than [format %.4g $_covmin] frames - exported, but trimmed from the plot."

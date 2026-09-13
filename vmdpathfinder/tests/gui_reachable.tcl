@@ -1903,15 +1903,11 @@ if {[file exists $PDB] && [file executable [::VMDPathFinder::tool_path mole_engi
                         [lindex $_zA $_i] [lindex $_rA $_i]]
                 }
                 set _mA [lsort -real -index 0 $_mA]
-                # B's OWN flip-corrected range - NOT a hand-derived mirror
-                # formula, which silently assumed the wrong (unflipped) range
-                # and produced a false "0.35 A" failure the first time this
-                # check was written. Negating B's raw signed values is
-                # EXACTLY what _tunnel_mean_centerline itself does (dot<0
-                # branch) before computing smins/smaxs, so this reproduces
-                # its own lo/hi precisely instead of approximating it.
-                set _sBflip5 {}
-                foreach _v $_sB { lappend _sBflip5 [expr {-$_v}] }
+                # B's OWN flip-corrected range: walking B from its other end
+                # (reverse=1) is EXACTLY what _tunnel_mean_centerline itself
+                # does (dot<0 branch) before computing smins/smaxs, so this
+                # reproduces its own lo/hi precisely instead of approximating it.
+                set _sBflip5 [lindex [::VMDPathFinder::_tunnel_mean_member_series $_tupB 1] 0]
                 set _sAmin [lindex $_sA 0]; set _sAmax [lindex $_sA end]
                 if {$_sAmin > $_sAmax} { lassign [list $_sAmax $_sAmin] _sAmin _sAmax }
                 set _sBmin [lindex $_sBflip5 0]; set _sBmax [lindex $_sBflip5 end]
@@ -1951,7 +1947,7 @@ if {[file exists $PDB] && [file executable [::VMDPathFinder::tool_path mole_engi
                            [expr {$_cnt5 > 0 && $_maxdev < 0.5}] "(max_dev=[format %.4f $_maxdev] over $_cnt5 samples)"
                     # Sabotage-checked by hand: disabling the "if {$dot < 0}"
                     # flip in _tunnel_mean_centerline turns this FAIL (the
-                    # unflipped average folds toward the bottleneck instead of
+                    # unflipped average folds the route onto itself instead of
                     # tracking A's own path - max_dev jumps from ~0.1 A to
                     # several A on this same fixture's own tunnel 1).
                 } else {
@@ -2025,16 +2021,11 @@ if {[file exists $PDB] && [file executable [::VMDPathFinder::tool_path mole_engi
     }
 
     # E3: Over Time/Mean Profile/Histogram are now reused in tunnel mode too,
-    # binned on distance from the SELECTED tunnel's own bottleneck rather than
-    # a shared channel coordinate - a design finding from cross-tabulating
-    # tunnel rank #1 across a 50-frame pentamer fixture: its own far endpoint
-    # had a 3-9 A stdev across frames and its bottleneck's distance-from-
-    # origin ranged 5.6-62.2 A (5.6%-73.1% of that frame's path length), so
-    # neither raw distance-from-origin nor a 0-1 length fraction lines the
-    # constriction up across frames - anchoring on the bottleneck itself does.
-    # This fixture is single-frame ("now"), so it cannot exercise the >=2-
-    # frame rendered path, but it can check the tab set, the bottleneck-
-    # anchoring math on real data, and that mode-aware placeholder text
+    # binned on distance from the SELECTED tunnel's start point along its own
+    # centreline (the CAVER/MOLE/CHAP convention) rather than a shared channel
+    # coordinate. This fixture is single-frame ("now"), so it cannot exercise
+    # the >=2-frame rendered path, but it can check the tab set, the
+    # start-anchored distance on real data, and that mode-aware placeholder text
     # doesn't leak between modes (a real bug found and fixed this session:
     # the HOLE-side empty branches never updated -text because it used to be
     # static, so a tunnel-mode placeholder stayed showing after switching
@@ -2046,14 +2037,13 @@ if {[file exists $PDB] && [file executable [::VMDPathFinder::tool_path mole_engi
     if {$ntun > 0} {
         set _tuple [::VMDPathFinder::_tunnel_tuple_for [lindex $frames 0] 1]
         lassign [::VMDPathFinder::_tunnel_signed_profile $_tuple] _sd _radii
-        set _bidx 0; set _bmin [lindex $_radii 0]
-        for {set _i 1} {$_i < [llength $_radii]} {incr _i} {
-            set _r [lindex $_radii $_i]
-            if {$_r < $_bmin} { set _bmin $_r; set _bidx $_i }
+        set _mono 1
+        for {set _i 1} {$_i < [llength $_sd]} {incr _i} {
+            if {[lindex $_sd $_i] < [lindex $_sd [expr {$_i-1}]]} { set _mono 0 }
         }
-        report "_tunnel_signed_profile centers 0 on the tunnel's own bottleneck" \
-               [expr {abs([lindex $_sd $_bidx]) < 1e-9}] \
-               "(signed dist at the narrowest point: [lindex $_sd $_bidx])"
+        report "_tunnel_signed_profile starts at 0 at the route's start and never runs backwards" \
+               [expr {abs([lindex $_sd 0]) < 1e-9 && $_mono && [lindex $_sd end] > 0}] \
+               "(first [lindex $_sd 0] last [lindex $_sd end])"
     }
     ::VMDPathFinder::draw_histogram_tab
     # <<NotebookTabChanged>> is queued (event generate's default -when tail),
@@ -4266,8 +4256,8 @@ if {[file exists $PDB] && [file executable [::VMDPathFinder::tool_path mole_engi
         # is where it has to be read from.
         set _iftt ""
         catch {set _iftt [bind $w.plotframe.nb.ionflow.exportbar.vwm <Enter>]}
-        report "...but it still documents the bottleneck-anchoring difference in the tooltip" \
-               [string match "*bottleneck-anchored*" $_iftt] "(tooltip: $_iftt)"
+        report "...but it still documents the per-slice-mean difference in the tooltip" \
+               [string match "*per-slice mean*" $_iftt] "(tooltip: $_iftt)"
 
         set ::VMDPathFinder::ion_flow_cache $_sv_ifc
         set ::VMDPathFinder::state(ion_flow_view) $_sv_ifv
