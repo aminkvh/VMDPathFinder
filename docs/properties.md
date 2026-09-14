@@ -78,10 +78,10 @@ Changing one does not change the other.
 
 ## Where properties appear
 
-The 3D surface, Pore Profile **Fill**, and Mean Profile synchronize a selected
-property where that property is available. In Pore mode, **Over Time** has its
-own selector and **Compute** step; in Tunnel mode it uses the selected route's
-property.
+The main 3D surface, Pore Profile **Fill**, and mean 3D surface synchronize a
+property where available. The pore Mean Profile's 2D fill uses its independent
+**Fill by** selector. **Over Time** has its own property selector in both modes;
+pore properties require **Compute**.
 
 After Hydration has been computed, Pore Profile Fill and Mean Profile offer
 trajectory-average **Water G(z)** and **Water density**. The 3D surface instead

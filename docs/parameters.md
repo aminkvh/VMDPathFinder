@@ -129,7 +129,7 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 | Tunnel representation | Isosurface | Isosurface, Wireframe, or Centerline; global or per route |
 | Pore surface color | `hole_def` | HOLE radius banding, `watermelon` ten-band radius coloring, property, `pore_lat` pore/spill classification, `pore_lobes` individual Connolly openings, or a flat VMD color |
 | Tunnel surface color | automatic rank | Route/rank color, `Watermelon` radius bands, selected property, or a flat VMD color |
-| Time/frame (beside the frame list toggle) | empty | Simulation time between saved frames, with a unit menu (fs, ps, ns, µs, ms). Set, every per-frame axis (Over Time, Trends, per-frame hydration, Ion & Water) shows frame × time in that unit, the frame list gains a Time column, and frame-indexed CSVs gain a `time_<unit>` column; empty or 0 shows frame numbers; the field admits digits and a point only. Also the frame interval of the permeation rate when the permeation dialog's own field is blank |
+| Time/frame (beside the frame list toggle) | empty | Interval between saved trajectory frames, in fs, ps, ns, µs, or ms; empty or 0 keeps frame-number labels |
 | Material | Opaque | VMD material applied to the generated representation |
 | Playback triangles (Settings, `sos_triangle` mesher only) | 4 | Draw every Nth triangle while the trajectory plays; the marching-cubes mesher always draws full detail |
 | Synchronize playback | on | Update VMDPathFinder geometry with the VMD frame |
@@ -144,10 +144,15 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 | Metrics readout | on/default | Show pore summary and selected ion passability values |
 | Metrics species | Water, K, Na, Ca | Species in the on-figure passability summary; Mg, Cl, Li, and Cs are also available |
 
-The 3D surface, Pore Profile Fill, and Mean Profile synchronize a property where
-it is available. In Pore mode, **Over Time** has an independent property and an
-explicit **Compute** gate. In Tunnel mode, it uses the selected route's property
-without a separate computation. Kapcha–Rossky is atom-level in both modes.
+**Time/frame** labels per-frame plots and the frame list with
+`frame index × interval`. Enter the interval between loaded frames, not the
+analysis stride. It also supplies the permeation interval when that dialog's
+own interval is blank. See [Time column](exports.md#time-column) for export support.
+
+The main 3D surface, Pore Profile Fill, and mean 3D surface synchronize a
+property where available. The pore Mean Profile's **Fill by** selector is
+independent. **Over Time** has its own property selector in both modes; pore
+properties require **Compute**. Kapcha–Rossky is atom-level in both modes.
 
 ## Plot controls
 
@@ -155,9 +160,18 @@ without a separate computation. Kapcha–Rossky is atom-level in both modes.
 |---|---|
 | Pore Profile | None, Fill, Ellipse fit, or Unrolled; property/layer; ellipse solid/point rendering; swap axes; flip direction |
 | Over Time | Radius or Property; HOLE or Ellipse radius source; color scheme; independent property; Compute; flip Y |
-| Mean Profile | mean line, standard-deviation band, min/max envelope; 2D fill with its own **Fill by** scheme (watermelon radius bands or a property) in the gear; **Radius** source spherical or ellipse (area-equivalent, sharing Over Time's ellipse fit) in the gear; the property picker under the plot serves the 3D surface only; 3D isosurface; color; material; accurate 3D; frame cap; Render smoothly (off); swap/flip |
+| Mean Profile | mean line, standard-deviation band, min/max envelope; Fill by; Radius source; 3D isosurface, property, color, material, accurate 3D, frame cap; Render smoothly (off); swap/flip |
 | Trends | metric; mean overlay; conductivity preset/custom value for conductance; constriction shell |
 | Histogram (radius summary) | mean (default), minimum, or maximum radius over 50 fixed spatial bins; swap/flip |
+
+In the pore Mean Profile gear, **Fill by** selects radius bands or a property
+for the 2D fill. The property picker below the plot controls the mean 3D
+surface, not that fill.
+
+**Radius** selects the profile radius or the ellipse area-equivalent radius.
+It affects the pore Mean Profile curves and surface, Histogram, and the
+Ion & Water wall curve. The ellipse source shares fitted data with Over Time;
+it does not change Over Time's own radius-source selection.
 
 See [Properties](properties.md#unrolled-map-layers) for Unrolled layers.
 **Connolly reach** is available for Connolly pores. Plot swap and flip options

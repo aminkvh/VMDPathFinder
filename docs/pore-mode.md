@@ -273,8 +273,10 @@ geometry. Cite CHAP from the
 ### Ion & Water
 
 The **Openings** view is offered only for a Connolly run; the other views apply
-to every probe. The scan covers the frames the analysis covers, from the first
-to the last analysed frame, so a run on frames 1:11 reports frames 1 to 11.
+to every probe. The scan covers the interval from the first to the last
+analysed frame, including intervening trajectory frames. For example, geometry
+analysed at `0:10:100` gives a scan span of frames 0 through 100, not just the
+eleven geometry frames.
 Every new run, import or reset drops the previous Ion & Water result.
 
 <p align="center"><img src="images/ion_passage.png" alt="Ion passage plot: per-ion axial traces through the pore over the trajectory" width="720"></p>

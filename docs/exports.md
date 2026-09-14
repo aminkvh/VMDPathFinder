@@ -52,9 +52,15 @@ before saving.
 
 ## Time column
 
-When **Time/frame** is set in the Frames bar, the Trends and tunnel trends
-CSVs carry a `time_<unit>` column beside `frame`, and the Over Time CSVs note
-the time per frame in a header line. Frame numbers are kept in every file.
+With a positive **Time/frame**, pore and tunnel Trends, cavity volume-series,
+and Ion & Water Count and Passage CSVs add `time_<unit>` beside `frame`.
+Time is the loaded frame index multiplied by the saved-frame interval;
+microseconds use `time_us`.
+
+Pore Over Time CSVs keep frame-number columns and record the interval in a
+comment header. Tunnel Over Time CSVs keep frame-number columns but do not
+record the interval; save it separately. Other exports do not automatically
+gain a time column.
 
 ## Hydration export
 
