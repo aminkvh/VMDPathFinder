@@ -5185,6 +5185,20 @@ if {[winfo exists $_hp]} {
         ::VMDPathFinder::_frame_time_unit_pick ns
         report "an empty field goes back to bare frame numbers" \
             [expr {[::VMDPathFinder::_frame_axis_label] eq "Frame" && [::VMDPathFinder::_frame_tick_text 4] eq "4"}] ""
+        # Ion & Water is measured against ONE run's pore; a new run (the same
+        # clear every settings change goes through) must drop it rather than
+        # leave the old map on screen.
+        set _sv_ifr $::VMDPathFinder::ion_flow_raw; set _sv_ifc $::VMDPathFinder::ion_flow_cache
+        set _sv_res $::VMDPathFinder::results; set _sv_rf $::VMDPathFinder::result_frames
+        set _sv_pdv $::VMDPathFinder::plot_data_version
+        set ::VMDPathFinder::ion_flow_raw [dict create nframes 3 frame_ref 0]
+        set ::VMDPathFinder::ion_flow_cache [dict create species K+ nions 1]
+        ::VMDPathFinder::clear_results_for_new_settings
+        report "a new run clears the Ion & Water result" \
+            [expr {$::VMDPathFinder::ion_flow_raw eq "" && $::VMDPathFinder::ion_flow_cache eq ""}] ""
+        set ::VMDPathFinder::ion_flow_raw $_sv_ifr; set ::VMDPathFinder::ion_flow_cache $_sv_ifc
+        set ::VMDPathFinder::results $_sv_res; set ::VMDPathFinder::result_frames $_sv_rf
+        set ::VMDPathFinder::plot_data_version $_sv_pdv
         set ::VMDPathFinder::state(pore_method) connolly
         # The real click path: the menu entry's own -command, not a state poke.
         set ::VMDPathFinder::state(display_mode) triangulated

@@ -21675,6 +21675,7 @@ proc ::VMDPathFinder::run_tunnel_analysis {} {
     array set tunnel_lining {}
     array unset tunnel_shown
     array set tunnel_shown {}
+    _ion_flow_forget
     variable tunnel_shown_cid
     array unset tunnel_shown_cid
     array set tunnel_shown_cid {}
@@ -29366,6 +29367,24 @@ proc ::VMDPathFinder::import_all_results_from_folder {{dialog {}}} {
     }
 }
 
+proc ::VMDPathFinder::_ion_flow_forget {} {
+    # Drop the Ion & Water result: it was measured against one run's pore
+    # (axis from its reference frame, walls from its analysed frames), so a
+    # new run, an import or a reset must not leave it on screen. The stash
+    # that carries the result across a Pore/Tunnel mode switch is dropped for
+    # the current mode too. The tab then shows its "Compute" placeholder.
+    variable ion_flow_raw
+    variable ion_flow_cache
+    variable _mode_stash
+    set ion_flow_raw ""; set ion_flow_cache ""
+    if {[info exists _mode_stash]} { catch {dict unset _mode_stash [analysis_mode]} }
+    catch {
+        variable w
+        if {[_have_tk] && [winfo exists $w.plotframe.nb] \
+                && [string match "*.ionflow" [$w.plotframe.nb select]]} { draw_ion_flow_tab }
+    }
+}
+
 proc ::VMDPathFinder::clear_results_for_new_settings {} {
     # Drop every computed result, surface and derived cache, WITHOUT the
     # confirmation dialog or the UI chatter reset_session adds. Called by
@@ -29381,6 +29400,7 @@ proc ::VMDPathFinder::clear_results_for_new_settings {} {
     variable plot_data_version
     variable state
     catch {clear_surface}
+    _ion_flow_forget
     set results [dict create]
     set result_frames {}
     catch {array unset mol_results};       array set mol_results {}
@@ -48199,6 +48219,7 @@ proc ::VMDPathFinder::_run_ion_flow {} {
     # (_ion_flow_refilter) - no rescan. So Compute is only for the first run (or to pick
     # up new frames / a moved pore).
     variable state
+    variable result_frames
     variable ion_flow_raw
     variable ion_flow_cache
     if {[_op_in_progress]} {
@@ -48252,7 +48273,9 @@ proc ::VMDPathFinder::_run_ion_flow {} {
     set d $ion_flow_cache
     set _w [expr {[dict get $raw protein_wrapped] ? \
         "  ⚠ the protein looks wrapped across the box - image it first (Help ▸ About) or Z may jump." : ""}]
-    set state(status) "Ion flow ([dict get $d species]): [dict get $d nions] [_ion_flow_noun $d], [dict get $d nframes] frames.$_w"
+    set _nan [expr {$_tunnel_mode ? 1 : [llength $result_frames]}]
+    set state(status) "Ion flow ([dict get $d species]) computed now: [dict get $d nions] [_ion_flow_noun $d] over\
+        [dict get $d nframes] frames, axis from frame $frame, walls from $_nan analysed frame(s).$_w"
 }
 
 proc ::VMDPathFinder::_on_ion_flow_view_changed {} {
