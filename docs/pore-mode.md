@@ -20,6 +20,11 @@ invisible to HOLE, while including more atoms can change the profile and cost.
 
 ## 2. Define frames
 
+A frame range (`all`, `1:11`, `0:10:100`) defines the result set: on a re-run
+with unchanged settings, frames from the earlier run that lie outside the new
+range are dropped. Single frames (`now`, `5`, `3,7`) add to what is there, so a
+structure can be analysed frame by frame.
+
 The **Frames** field accepts:
 
 | Syntax | Meaning |
@@ -268,7 +273,9 @@ geometry. Cite CHAP from the
 ### Ion & Water
 
 The **Openings** view is offered only for a Connolly run; the other views apply
-to every probe.
+to every probe. The scan covers the frames the analysis covers, from the first
+to the last analysed frame, so a run on frames 1:11 reports frames 1 to 11.
+Every new run, import or reset drops the previous Ion & Water result.
 
 <p align="center"><img src="images/ion_passage.png" alt="Ion passage plot: per-ion axial traces through the pore over the trajectory" width="720"></p>
 

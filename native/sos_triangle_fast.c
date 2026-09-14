@@ -339,6 +339,7 @@ int    hydro3d_mode = 0;         /* 1 = colour via hydro_at_point_3d(), not hydr
    centroid, in n absolute radius bands (the plugin's watermelon scale). */
 #define SOS_MAXBANDS 32
 int    hydro_bands_mode = 0;
+static int hydro_bands_invalid = 0;   /* --bands asked for but unusable */
 static double band_edge[SOS_MAXBANDS + 1]; static char *band_name[SOS_MAXBANDS];
 static int n_bands = 0, n_band_edges = 0;
 static int *cl_idx = NULL, n_cl = 0;   /* centreline spheres (not flood/escaped, r > 0) */
@@ -1841,6 +1842,12 @@ static void hydro_load(void)
     for (i = 0; i < n_sph; i++)
       if (!sph_flood[i] && sph_r[i] > 0.005 && sph_r[i] < 999.0) cl_idx[n_cl++] = i;
     hydro_thin_spheres();
+    if (n_cl <= 0 || n_bands < 1 || n_band_edges != n_bands + 1) {
+      /* nothing to band by, or edges/names disagree: emit the mesh uncoloured
+         rather than every triangle in band 0 or a read past band_name[] */
+      fprintf(stderr, "\nhydro: radius bands need a centreline and one more edge than names (%d spheres, %d edges, %d names) - emitting uncoloured surface.", n_cl, n_band_edges, n_bands);
+      hydro_mode = 0; hydro_bands_mode = 0; hydro_bands_invalid = 1;
+    }
     return;
   }
   if (hydro_values_mode) {
@@ -1871,6 +1878,15 @@ static void recolor_vmd_plot_serial(const char *path)
     char *p = strstr(line, "draw triangle");
     if (!p) p = strstr(line, "draw trinorm");
     if (strstr(line, "draw color")) continue;   /* drop old colours */
+    if (!p && hydro_bands_mode && strstr(line, "draw point")) {
+      double px, py, pz; char *q = strchr(line, '{');
+      if (q && (sscanf(q, "{ %lf %lf %lf", &px, &py, &pz) == 3 || sscanf(q, "{%lf %lf %lf", &px, &py, &pz) == 3)) {
+        const char *col = surface_color_name(hydro_at_point(px, py, pz));
+        if (strcmp(col, cur) != 0) { fprintf(stdout, "draw color %s\n", col); cur = col; }
+      }
+      fputs(line, stdout);
+      continue;
+    }
     if (p) {
       double v[3][3];
       char *q = p;
@@ -1969,6 +1985,18 @@ static void recolor_vmd_plot(const char *path)
   for (li = 0; li < n_lines; li++) {
     char *p = strstr(lines[li], "draw triangle");
     if (!p) p = strstr(lines[li], "draw trinorm");
+    if (!p && hydro_bands_mode) {
+      /* the dots display: one "draw point {x y z}" per vertex, coloured by
+         the radius at the point itself */
+      char *pp = strstr(lines[li], "draw point");
+      if (pp) {
+        double px, py, pz; char *q = strchr(pp, '{');
+        if (q && (sscanf(q, "{ %lf %lf %lf", &px, &py, &pz) == 3 || sscanf(q, "{%lf %lf %lf", &px, &py, &pz) == 3)) {
+          tri_line[n_tri] = li; cxs[n_tri] = px; cys[n_tri] = py; czs[n_tri] = pz; n_tri++;
+        }
+      }
+      continue;
+    }
     if (!p) continue;
     if (strstr(lines[li], "draw color")) continue;  /* a colour line, never a tri */
     {
@@ -4156,6 +4184,10 @@ int main (int argc, char *argv[])
     hydro_load();
     if (n_sph <= 0) {
       fprintf(stderr, "\n--recolor: no spheres parsed; nothing to do.\n");
+      return(1);
+    }
+    if (hydro_bands_invalid) {
+      fprintf(stderr, "\n--recolor: radius bands unusable; base left untouched.\n");
       return(1);
     }
     if (hydro3d_mode) {

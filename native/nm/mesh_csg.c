@@ -668,6 +668,8 @@ static long mesh_run(const char *outpath, const char *plotpath) {
         if (draw_form) fprintf(plot, "%sdelete all\n", G);
         static const char *hole_names[3] = {"red", "green", "blue"};
         int use_bands = bands_ok();
+        if (!use_bands && (nbands || nband_edges))
+            fprintf(stderr, "mesh_csg: --bands needs one more edge than --band-names (%d edges, %d names) - HOLE's three groups written instead\n", nband_edges, nbands);
         int ngroups = use_bands ? nbands : 3;
         for (int band = 0; band < ngroups; band++) {
             int any = 0;
@@ -992,7 +994,7 @@ int main(int argc, char **argv)
     if (argc >= 2 && !strcmp(argv[1], "--serve")) {
         /* Persistent: one process per VMD session instead of one fork per
            frame (forking the VMD process costs ~20 ms on a loaded trajectory). */
-        char line[4096];
+        static char line[65536];
         setvbuf(stdout, NULL, _IOLBF, 0);
         while (fgets(line, sizeof line, stdin)) {
             if (!strncmp(line, "quit", 4)) break;
@@ -1014,8 +1016,8 @@ int main(int argc, char **argv)
 #endif
             ax_have = 0; ax_endrad = 0; nwith = 0; bands_reset();
             char *mopt = strcmp(f0, "recolor") ? strchr(vs, '\t') : NULL;   /* VOXEL<TAB>--axis ... */
-            if (mopt) { *mopt++ = 0; char *av[48]; int ac = 0;
-                for (char *tok = strtok(mopt, "\t"); tok && ac < 48; tok = strtok(NULL, "\t")) av[ac++] = tok;
+            if (mopt) { *mopt++ = 0; char *av[512]; int ac = 0;
+                for (char *tok = strtok(mopt, "\t"); tok && ac < 512; tok = strtok(NULL, "\t")) av[ac++] = tok;
                 axis_parse(ac, av); }
             if (!strcmp(f0, "extent")) {
                 /* extent<TAB>SPH: centreline bounding box + largest radius, the
