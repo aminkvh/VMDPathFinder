@@ -129,7 +129,7 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 | Tunnel representation | Isosurface | Isosurface, Wireframe, or Centerline; global or per route |
 | Pore surface color | `hole_def` | HOLE radius banding, `watermelon` ten-band radius coloring, property, `pore_lat` pore/spill classification, `pore_lobes` individual Connolly openings, or a flat VMD color |
 | Tunnel surface color | automatic rank | Route/rank color, `Watermelon` radius bands, selected property, or a flat VMD color |
-| Time/frame (beside the frame list toggle) | empty | Simulation time between saved frames, with a unit menu (fs, ps, ns, µs, ms). Set, every per-frame axis (Over Time, Trends, per-frame hydration, Ion & Water) shows frame × time in that unit and frame-indexed CSVs gain a `time_<unit>` column; empty or 0 shows frame numbers; the field admits digits and a point only. Also the frame interval of the permeation rate when the permeation dialog's own field is blank |
+| Time/frame (beside the frame list toggle) | empty | Simulation time between saved frames, with a unit menu (fs, ps, ns, µs, ms). Set, every per-frame axis (Over Time, Trends, per-frame hydration, Ion & Water) shows frame × time in that unit, the frame list gains a Time column, and frame-indexed CSVs gain a `time_<unit>` column; empty or 0 shows frame numbers; the field admits digits and a point only. Also the frame interval of the permeation rate when the permeation dialog's own field is blank |
 | Material | Opaque | VMD material applied to the generated representation |
 | Playback triangles (Settings, `sos_triangle` mesher only) | 4 | Draw every Nth triangle while the trajectory plays; the marching-cubes mesher always draws full detail |
 | Synchronize playback | on | Update VMDPathFinder geometry with the VMD frame |
@@ -155,7 +155,7 @@ without a separate computation. Kapcha–Rossky is atom-level in both modes.
 |---|---|
 | Pore Profile | None, Fill, Ellipse fit, or Unrolled; property/layer; ellipse solid/point rendering; swap axes; flip direction |
 | Over Time | Radius or Property; HOLE or Ellipse radius source; color scheme; independent property; Compute; flip Y |
-| Mean Profile | mean line, standard-deviation band, min/max envelope; 2D fill; property; 3D isosurface; color; material; accurate 3D; frame cap; Render smoothly (off); swap/flip |
+| Mean Profile | mean line, standard-deviation band, min/max envelope; 2D fill with its own **Fill by** scheme (watermelon radius bands or a property) in the gear; **Radius** source spherical or ellipse (area-equivalent, sharing Over Time's ellipse fit) in the gear; the property picker under the plot serves the 3D surface only; 3D isosurface; color; material; accurate 3D; frame cap; Render smoothly (off); swap/flip |
 | Trends | metric; mean overlay; conductivity preset/custom value for conductance; constriction shell |
 | Histogram (radius summary) | mean (default), minimum, or maximum radius over 50 fixed spatial bins; swap/flip |
 

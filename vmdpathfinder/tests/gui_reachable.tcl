@@ -5196,6 +5196,35 @@ if {[winfo exists $_hp]} {
         ::VMDPathFinder::clear_results_for_new_settings
         report "a new run clears the Ion & Water result" \
             [expr {$::VMDPathFinder::ion_flow_raw eq "" && $::VMDPathFinder::ion_flow_cache eq ""}] ""
+        # Mean Profile: the picker under the plot belongs to the 3D surface's
+        # property colouring; the fill has its own scheme in the gear, with
+        # watermelon first, and the gear also chooses the radius source.
+        set _sv_mf $::VMDPathFinder::state(mean_profile_fill); set _sv_ms $::VMDPathFinder::state(show_mean_surface)
+        set _sv_mc $::VMDPathFinder::state(mean_surface_color)
+        set ::VMDPathFinder::state(mean_profile_fill) 1; set ::VMDPathFinder::state(show_mean_surface) 0
+        ::VMDPathFinder::_update_mean_property_visibility
+        update idletasks
+        report "Fill alone does not show the surface property picker under the plot" \
+            [expr {[winfo manager $w.plotframe.nb.mean.exportbar.psc] eq ""}] ""
+        set ::VMDPathFinder::state(show_mean_surface) 1; set ::VMDPathFinder::state(mean_surface_color) property
+        ::VMDPathFinder::_update_mean_property_visibility
+        update idletasks
+        report "...the 3D surface coloured by property does" \
+            [expr {[winfo manager $w.plotframe.nb.mean.exportbar.psc] ne ""}] ""
+        set ::VMDPathFinder::state(mean_profile_fill) $_sv_mf; set ::VMDPathFinder::state(show_mean_surface) $_sv_ms
+        set ::VMDPathFinder::state(mean_surface_color) $_sv_mc
+        ::VMDPathFinder::_update_mean_property_visibility
+        catch {destroy $w.mean_settings}
+        ::VMDPathFinder::show_mean_profile_settings
+        update idletasks
+        report "the Mean Profile gear carries a Fill-by picker with watermelon first" \
+            [expr {[winfo exists $w.mean_settings.fillrow.m] \
+                && [$w.mean_settings.fillrow.m.m entrycget 0 -value] eq "watermelon"}] ""
+        report "...and a spherical / ellipse radius source" \
+            [expr {[winfo exists $w.mean_settings.rsrc.sph] && [winfo exists $w.mean_settings.rsrc.ell]}] ""
+        catch {destroy $w.mean_settings}
+        report "the Ion & Water Openings view is gated to Connolly runs" \
+            [expr {[string first {index Openings} [info body ::VMDPathFinder::_ion_flow_sync_bar_vis]] >= 0}] ""
         set ::VMDPathFinder::ion_flow_raw $_sv_ifr; set ::VMDPathFinder::ion_flow_cache $_sv_ifc
         set ::VMDPathFinder::results $_sv_res; set ::VMDPathFinder::result_frames $_sv_rf
         set ::VMDPathFinder::plot_data_version $_sv_pdv

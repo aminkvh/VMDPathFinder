@@ -267,6 +267,9 @@ geometry. Cite CHAP from the
 
 ### Ion & Water
 
+The **Openings** view is offered only for a Connolly run; the other views apply
+to every probe.
+
 <p align="center"><img src="images/ion_passage.png" alt="Ion passage plot: per-ion axial traces through the pore over the trajectory" width="720"></p>
 
 Requires ions or water and at least two trajectory frames. **Occupancy + flow**

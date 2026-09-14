@@ -673,6 +673,9 @@ namespace eval ::VMDPathFinder:: {
         pore_lining_view_disp None
         mean_smooth_mesh 0
         mean_profile_fill 0
+        mean_fill_scheme kd
+        mean_fill_scheme_disp kyte-doolittle
+        mean_radius_source spherical
         mean_surface_color green
         mean_surface_color_disp green
         mean_surface_material Opaque
@@ -1100,7 +1103,7 @@ proc ::VMDPathFinder::_config_persistent_keys {} {
         cavity_solid cavity_spheres cavity_origin_rule cavity_track_cutoff cavity_prop
         tunnel_align tunnel_render_maxr bottleneck_shell tunnel_hydro3d_accurate
         tunnel_display_mode tunnel_display_material tunnel_display_color
-        mean_tunnel_display_mode frame_time frame_time_unit
+        mean_tunnel_display_mode frame_time frame_time_unit mean_fill_scheme mean_radius_source
         export_run_map export_run_next
     }
 }
@@ -2665,6 +2668,8 @@ proc ::VMDPathFinder::build_gui {w} {
         ::VMDPathFinder::on_mean_coloring_changed
     _trace_once ::VMDPathFinder::state(mean_hydro_scheme) write \
         ::VMDPathFinder::_sync_mean_scheme_disp
+    _trace_once ::VMDPathFinder::state(mean_fill_scheme) write \
+        ::VMDPathFinder::on_mean_fill_scheme_changed
     # Mean Profile joins Visualization and Pore Profile Fill. Order against
     # on_mean_coloring_changed below does not matter - the sync proc holds
     # _syncing_property_scheme only for the duration of its own call, so a local
@@ -6988,11 +6993,22 @@ proc ::VMDPathFinder::_ion_flow_sync_bar_vis {} {
     if {![winfo exists $eb.go]} { return }
     set _hole [expr {[analysis_mode] ne "tunnel"}]
     if {!$_hole} { catch {destroy $w.permeation} }
+    variable state
+    # Openings exist only on a Connolly surface: offer the view only then,
+    # and leave it if the run changed underneath it.
+    set _conn [expr {$_hole && ([_run_uses_card conn] || [_run_uses_card connolly])}]
+    catch {
+        set _oi [$eb.vwm.m index Openings]
+        $eb.vwm.m entryconfigure $_oi -state [expr {$_conn ? "normal" : "disabled"}]
+    }
+    if {!$_conn && [info exists state(ion_flow_view)] && $state(ion_flow_view) eq "openings"} {
+        set state(ion_flow_view) density
+        set state(ion_flow_view_disp) "Occupancy %"
+    }
     if {$ion_flow_cache ne ""} {
         catch {pack $eb.export -side right -padx 4 -before $eb.gear}
         catch {pack $eb.vwm -side left -padx {6 4} -before $eb.go}
         catch {pack $eb.spm -side left -padx {0 6} -before $eb.go}
-        variable state
         if {[info exists state(ion_flow_species)] && $state(ion_flow_species) eq "Water" \
                 && [info exists state(ion_flow_view)] && $state(ion_flow_view) eq "passage"} {
             catch {pack $eb.shw -side left -padx {0 6} -before $eb.go}
@@ -21329,6 +21345,17 @@ proc ::VMDPathFinder::_csv_time_cell {frame} {
     return ",[format %.6g [_frame_to_time $frame]]"
 }
 
+proc ::VMDPathFinder::_frame_list_time_hdr {} {
+    # Frame-list column header for the simulation time, "" when unset.
+    if {[_frame_time_dt] <= 0} { return "" }
+    return [format "  %10s" "Time([_frame_time_unit_label])"]
+}
+
+proc ::VMDPathFinder::_frame_list_time_cell {frame} {
+    if {[_frame_time_dt] <= 0} { return "" }
+    return [format "  %10s" [_frame_tick_text $frame]]
+}
+
 proc ::VMDPathFinder::_frame_time_validate {new} {
     # Entry validator: digits and one decimal point only, so a negative or a
     # word can never be typed.
@@ -21347,6 +21374,7 @@ proc ::VMDPathFinder::_frame_time_changed {args} {
     # header, so the axis follows the field at once.
     variable _mem_swapping
     if {[info exists _mem_swapping] && $_mem_swapping} { return }
+    catch {refresh_results_list}
     catch {redraw_visible_analysis_tab}
 }
 
@@ -24144,6 +24172,32 @@ proc ::VMDPathFinder::show_mean_profile_settings {} {
         -variable ::VMDPathFinder::state(mean_profile_fill) \
         -command ::VMDPathFinder::on_mean_fill_toggled
     grid $d.fill -row $row -column 0 -sticky w -padx 8 -pady 3; incr row
+    # The fill's own scheme: watermelon radius bands or a property. Separate
+    # from the 3D surface's Property picker under the plot, which belongs to
+    # the surface alone.
+    frame $d.fillrow
+    label $d.fillrow.l -text "Fill by"
+    menubutton $d.fillrow.m -textvariable ::VMDPathFinder::state(mean_fill_scheme_disp) \
+        -menu $d.fillrow.m.m -relief raised -indicatoron 1 -width 22
+    menu $d.fillrow.m.m -tearoff 0
+    _populate_scheme_menu $d.fillrow.m.m mean_fill_scheme [_mean_fill_scheme_choices]
+    pack $d.fillrow.l -side left -padx {0 6}
+    pack $d.fillrow.m -side left
+    grid $d.fillrow -row $row -column 0 -sticky w -padx 20 -pady 1; incr row
+    add_tooltip $d.fillrow.m "What the fill is coloured by: the mean radius in watermelon bands, or a lining/hydration property averaged per bin."
+    _sync_mean_fill_scheme_disp
+    catch {_sync_mean_fill_row_state $d}
+    # Radius source for the mean curve, the histogram and the mean surface:
+    # HOLE's spherical probe, or the fitted ellipse's area-equivalent radius.
+    frame $d.rsrc
+    label $d.rsrc.l -text "Radius"
+    radiobutton $d.rsrc.sph -text "spherical" -value spherical \
+        -variable ::VMDPathFinder::state(mean_radius_source) -command ::VMDPathFinder::on_mean_radius_source_changed
+    radiobutton $d.rsrc.ell -text "ellipse (area-equivalent)" -value ellipse \
+        -variable ::VMDPathFinder::state(mean_radius_source) -command ::VMDPathFinder::on_mean_radius_source_changed
+    pack $d.rsrc.l $d.rsrc.sph $d.rsrc.ell -side left -padx {0 6}
+    grid $d.rsrc -row $row -column 0 -sticky w -padx 8 -pady 3; incr row
+    add_tooltip $d.rsrc.ell "Uses the fitted ellipse's area-equivalent radius per frame. Shares the ellipse cache with Over Time, so a fit done there is reused here and the other way round; a missing fit is computed on first use."
 
     foreach {_mv _mlbl _mtip} [list \
             mean_show_mean   "Mean line" "The mean radius in each bin." \
@@ -31079,6 +31133,39 @@ proc ::VMDPathFinder::_sync_mean_surface_color_disp {args} {
     set state(mean_surface_color_disp) $state(mean_surface_color)
 }
 
+proc ::VMDPathFinder::_mean_fill_scheme_choices {} {
+    return [concat [list watermelon "watermelon (radius)"] [_mean_hydro_scheme_choices]]
+}
+
+proc ::VMDPathFinder::_sync_mean_fill_scheme_disp {args} {
+    variable state
+    if {![info exists state(mean_fill_scheme)] || $state(mean_fill_scheme) eq ""} { set state(mean_fill_scheme) kd }
+    set state(mean_fill_scheme_disp) [scheme_display_label $state(mean_fill_scheme)]
+}
+
+proc ::VMDPathFinder::_sync_mean_fill_row_state {d} {
+    # The fill picker is only live while Fill is on.
+    variable state
+    if {![winfo exists $d.fillrow.m]} { return }
+    set on [expr {[info exists state(mean_profile_fill)] && $state(mean_profile_fill)}]
+    $d.fillrow.m configure -state [expr {$on ? "normal" : "disabled"}]
+}
+
+proc ::VMDPathFinder::on_mean_fill_scheme_changed {args} {
+    _sync_mean_fill_scheme_disp
+    catch {draw_mean_profile}
+}
+
+proc ::VMDPathFinder::on_mean_radius_source_changed {args} {
+    # A new radius source is a new data set for the curve, the histogram and
+    # the mean surface: redraw, and rebuild the surface if it is on screen.
+    variable state
+    catch {draw_mean_profile}
+    if {[info exists state(show_mean_surface)] && $state(show_mean_surface) && [analysis_mode] ne "tunnel"} {
+        catch {build_and_show_mean_surface}
+    }
+}
+
 proc ::VMDPathFinder::_sync_mean_scheme_disp {args} {
     variable state
     set state(mean_hydro_scheme_disp) [scheme_display_label $state(mean_hydro_scheme)]
@@ -31368,10 +31455,12 @@ proc ::VMDPathFinder::draw_hydro_scalebar {sph_file {scheme ""}} {
         # 0.50 gives each of the (typically 7) band labels real breathing room
         # without growing the bar back toward eye level; smaller values crowd
         # adjacent band labels into the default font's own glyph height.
-        set bar_h   0.50
+        # Ten watermelon bands need a taller bar and smaller labels, or the
+        # edge labels overprint each other.
+        set bar_h   [expr {$n_bands > 7 ? 0.70 : 0.50}]
         set bh      [expr {$bar_h / double($n_bands)}]   ;# per-band height
         set z       0.0
-        set fsz 1.0
+        set fsz     [expr {$n_bands > 7 ? 0.75 : 1.0}]
         # ---- CORNER placement, ASPECT-CORRECTED ----
         # After display resetview, the fixed bar mol draws in clip space where the shorter
         # window dimension maps to [-1,1] and the longer stretches to [-aspect,aspect]
@@ -43840,7 +43929,7 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
         variable tunnel_result_frames
         variable tunnel_root
         catch {$w.bottom.detail.header configure \
-            -text [format "  %-5s  %5s  %8s  %s" "Frame" "Tuns" "Bneck(Å)" "Computed"]}
+            -text [format "  %-5s%s  %5s  %8s  %s" "Frame" [_frame_list_time_hdr] "Tuns" "Bneck(Å)" "Computed"]}
         foreach frame $tunnel_result_frames {
             set tuns [expr {[info exists tunnel_results($frame)] ? $tunnel_results($frame) : {}}]
             # "Best" = rank 1's own bottleneck, the same tunnel the list/3D
@@ -43857,9 +43946,9 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
                 }
             }
             if {$best ne ""} {
-                lappend lines [format "  %-5d  %5d  %8.4f  %s" $frame [llength $tuns] $best $ts]
+                lappend lines [format "  %-5d%s  %5d  %8.4f  %s" $frame [_frame_list_time_cell $frame] [llength $tuns] $best $ts]
             } else {
-                lappend lines [format "  %-5d  %5d  %8s  %s" $frame [llength $tuns] "---" $ts]
+                lappend lines [format "  %-5d%s  %5d  %8s  %s" $frame [_frame_list_time_cell $frame] [llength $tuns] "---" $ts]
             }
             lappend run_ids 0
         }
@@ -43873,7 +43962,7 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
         return
     }
     catch {$w.bottom.detail.header configure \
-        -text [format "  %-5s  %8s  %s" "Frame" "Radius(Å)" "Computed"]}
+        -text [format "  %-5s%s  %8s  %s" "Frame" [_frame_list_time_hdr] "Radius(Å)" "Computed"]}
     foreach frame $result_frames {
         set fdata [dict get $results $frame]
         set profile [dict get $fdata profile]
@@ -43882,10 +43971,10 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
             catch {set ts [clock format [dict get $fdata calc_time] -format %H:%M:%S]}
         }
         if {[dict get $profile valid]} {
-            lappend lines [format "  %-5d  %8.4f  %s" \
-                $frame [dict get $profile min_radius] $ts]
+            lappend lines [format "  %-5d%s  %8.4f  %s" \
+                $frame [_frame_list_time_cell $frame] [dict get $profile min_radius] $ts]
         } else {
-            lappend lines [format "  %-5d  %8s  %s" $frame "---" $ts]
+            lappend lines [format "  %-5d%s  %8s  %s" $frame [_frame_list_time_cell $frame] "---" $ts]
         }
         lappend run_ids [expr {[dict exists $fdata run_id] ? [dict get $fdata run_id] : 0}]
     }
@@ -52601,9 +52690,9 @@ proc ::VMDPathFinder::_solo_surface {which} {
                 # right back off by the removal below - the bar never actually appeared.
                 # sph_file is unused internally by draw_hydro_scalebar (see its own
                 # comment), so any placeholder is fine.
-                if {[info exists state(mean_surface_color)] && $state(mean_surface_color) eq "property" && \
+                if {[info exists state(mean_surface_color)] && $state(mean_surface_color) in {property watermelon} && \
                         [info exists state(show_hydro_scalebar)] && $state(show_hydro_scalebar)} {
-                    catch {draw_hydro_scalebar "mean" $state(mean_hydro_scheme)}
+                    catch {draw_hydro_scalebar "mean" [expr {$state(mean_surface_color) eq "watermelon" ? "watermelon" : $state(mean_hydro_scheme)}]}
                 } else {
                     catch {remove_hydro_scalebar}
                 }
@@ -52612,12 +52701,14 @@ proc ::VMDPathFinder::_solo_surface {which} {
             }
         } else {
             # Pore re-shown: bring its property scale bar back if that's the mode.
-            if {[info exists state(surface_color)] && $state(surface_color) eq "property" && \
+            if {[info exists state(surface_color)] && $state(surface_color) in {property watermelon} && \
                     [info exists state(show_hydro_scalebar)] && $state(show_hydro_scalebar) && \
                     [info exists state(selected_result_frame)] && $state(selected_result_frame) ne "" && \
                     [dict exists $results $state(selected_result_frame)]} {
                 set _sph [dict get [dict get $results $state(selected_result_frame)] sph_file]
-                if {[file exists $_sph]} { catch {draw_hydro_scalebar $_sph} }
+                if {[file exists $_sph]} {
+                    catch {draw_hydro_scalebar $_sph [expr {$state(surface_color) eq "watermelon" ? "watermelon" : ""}]}
+                }
             }
         }
         if {$which ne "mean"} {
@@ -54767,8 +54858,8 @@ proc ::VMDPathFinder::_export_fig_stem {tab} {
                 if {[analysis_mode] eq "tunnel"} {
                     catch {set _sch [_tunnel_effective_prop \
                         [expr {[info exists state(tunnel_selected_id)] ? $state(tunnel_selected_id) : ""}]]}
-                } elseif {[info exists state(mean_hydro_scheme)]} {
-                    set _sch $state(mean_hydro_scheme)
+                } elseif {[info exists state(mean_fill_scheme)]} {
+                    set _sch $state(mean_fill_scheme)
                 }
                 if {$_sch ni {"" none}} { append base "_[_export_slug $_sch]" }
             }
@@ -55739,7 +55830,18 @@ proc ::VMDPathFinder::collect_binned_radii {nbins {frame_list {}} {spec_key ""}}
     variable state
     set use_frames [expr {$spec_key eq "" ? $result_frames : $frame_list}]
     set _ckey [expr {$spec_key eq "" ? "$nbins|$plot_data_version" : "$nbins|$plot_data_version|mean:$spec_key"}]
+    # Radius source (Mean Profile gear): HOLE's spherical probe, or the fitted
+    # ellipse's area-equivalent radius sqrt(rmin*rmax) per frame, taken from
+    # the same batch Over Time's Ellipse view keeps (asym_batch_cache), so a
+    # fit made in either place serves both.
+    set _rsrc [expr {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse" ? "ellipse" : "spherical"}]
+    if {$_rsrc eq "ellipse"} { append _ckey "|src:ellipse" }
     if {[dict exists $binned_cache $_ckey]} { return [dict get $binned_cache $_ckey] }
+    set _ebatch {}
+    if {$_rsrc eq "ellipse"} {
+        catch {set _ebatch [_asym_batch_all [resolve_molid] $result_frames 36]}
+        if {[dict size $_ebatch] == 0} { return {} }
+    }
     # Cache MISS: a full per-frame profile parse + a double loop over every HOLE point in
     # every frame - can run several seconds on a long trajectory, and every caller
     # (collect_binned_property, the Radius Histogram, ...) reaches this BEFORE its own
@@ -55784,17 +55886,28 @@ proc ::VMDPathFinder::collect_binned_radii {nbins {frame_list {}} {spec_key ""}}
             catch {update idletasks}
         }
         if {![dict exists $results $frame]} continue
-        set p [ensure_profile_full $frame]
-        if {![dict get $p valid]} continue
-        set xv [dict get $p xvalues]
-        set yv [dict get $p yvalues]
+        if {$_rsrc eq "ellipse"} {
+            if {![dict exists $_ebatch $frame]} continue
+            lassign [dict get $_ebatch $frame] _ec _er _eu _easym
+            set xv {}; set yv {}
+            foreach _row $_easym {
+                lassign $_row _co _rh _rmin _rmax
+                lappend xv $_co
+                lappend yv [expr {sqrt(max($_rmin,0.0)*max($_rmax,0.0))}]
+            }
+        } else {
+            set p [ensure_profile_full $frame]
+            if {![dict get $p valid]} continue
+            set xv [dict get $p xvalues]
+            set yv [dict get $p yvalues]
+        }
         if {[llength $xv] == 0} continue
         incr nframes
         lappend xs $xv
         lappend ys $yv
         # Which radii are a Connolly value and which are the spherical-probe
         # fallback (_resolve_conn_radii). A bin fed by both is not one quantity.
-        lappend rs [expr {[dict exists $p rsources] ? [dict get $p rsources] : {}}]
+        lappend rs [expr {$_rsrc ne "ellipse" && [dict exists $p rsources] ? [dict get $p rsources] : {}}]
         foreach z $xv {
             if {$z < $zmin} { set zmin $z }
             if {$z > $zmax} { set zmax $z }
@@ -56996,9 +57109,9 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
             set _msch_lbl [::VMDPathFinder::_tunnel_prop_label $_msch]
             set _wm_fill [expr {[_tunnel_effective_colormode $_tun_id] eq "watermelon"}]
         } else {
-            set _msch [expr {[info exists state(mean_hydro_scheme)] ? $state(mean_hydro_scheme) : "kd"}]
+            set _msch [expr {[info exists state(mean_fill_scheme)] && $state(mean_fill_scheme) ne "" ? $state(mean_fill_scheme) : "kd"}]
             set _msch_lbl [scheme_display_label $_msch]
-            set _wm_fill [expr {[info exists state(mean_surface_color)] && $state(mean_surface_color) eq "watermelon"}]
+            set _wm_fill [expr {$_msch eq "watermelon"}]
         }
         if {$_wm_fill} { set _msch watermelon; set _msch_lbl "watermelon (radius)" }
         # collect_binned_property can be a multi-second per-frame pass the first time a
@@ -57598,7 +57711,7 @@ proc ::VMDPathFinder::_update_mean_property_visibility {args} {
     if {![winfo exists $bar.psc]} { return }
     set surf_on [expr {[info exists state(show_mean_surface)] && $state(show_mean_surface)}]
     set fill_on [expr {[info exists state(mean_profile_fill)] && $state(mean_profile_fill)}]
-    set show_prop [expr {$fill_on || ($surf_on && $state(mean_surface_color) eq "property")}]
+    set show_prop [expr {$surf_on && $state(mean_surface_color) eq "property"}]
     # Unpack first, then re-pack in a fixed left-to-right spot - avoids -before
     # referencing a currently-unmanaged widget (silently fails inside a catch)
     # and avoids a re-added widget landing at the end of the packing list.
@@ -59463,6 +59576,7 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
     # code change (the files are otherwise keyed only by plot_data_version + settings, neither
     # of which changes on a code change). A different token is a cache miss, forcing a rebuild.
     set _geomver "g11"
+    if {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse"} { append _geomver "e" }
     # Which mesher will actually build this geometry (surface_mesh is called
     # below with union=1, so match that here) - without this, switching
     # Settings > Surface mesher never invalidated the cached file (neither
@@ -59481,7 +59595,7 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
                 [file join $mean_dir "mean_profile_*.vmd_plot"] \
                 [file join $mean_dir "mean_profile_*.sph"] \
                 [file join $mean_dir "mean_profile_*.sos"]] {
-            if {![string match "*_${_geomver}_*" $_oldf]} { file delete -force $_oldf }
+            if {![string match "*_g11*_*" $_oldf]} { file delete -force $_oldf }
         }
     }
     set mean_sph  [file join $mean_dir "mean_profile_${mean_tag_base}.sph"]
@@ -59568,6 +59682,11 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
         set _surf_note [expr {$want_prop ? " ([property_short $state(mean_hydro_scheme)]$_surf_3dnote)" : ""}]
         set state(status) "Mean surface reloaded from cache$_range_note, [dict get $data nframes] frame(s)$_surf_note."
         catch {_update_surface_vis_buttons}
+        if {$state(mean_surface_color) eq "property"} {
+            catch {draw_hydro_scalebar $mean_sph $state(mean_hydro_scheme)}
+        } elseif {$state(mean_surface_color) eq "watermelon"} {
+            catch {draw_hydro_scalebar $mean_sph watermelon}
+        }
         return
     }
     if {!$force} {
