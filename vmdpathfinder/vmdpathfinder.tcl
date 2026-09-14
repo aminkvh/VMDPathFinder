@@ -781,6 +781,9 @@ namespace eval ::VMDPathFinder:: {
         perm_zhi {}
         perm_voltage 0
         perm_ns_per_frame {}
+        frame_time {}
+        frame_time_unit ns
+        frame_time_unit_disp ns
         metrics_kappa_preset {150 mM NaCl (37C)}
         metrics_kappa_custom 1.9
         metrics_kappa_disp 1.9
@@ -1097,7 +1100,7 @@ proc ::VMDPathFinder::_config_persistent_keys {} {
         cavity_solid cavity_spheres cavity_origin_rule cavity_track_cutoff cavity_prop
         tunnel_align tunnel_render_maxr bottleneck_shell tunnel_hydro3d_accurate
         tunnel_display_mode tunnel_display_material tunnel_display_color
-        mean_tunnel_display_mode
+        mean_tunnel_display_mode frame_time frame_time_unit
         export_run_map export_run_next
     }
 }
@@ -2586,7 +2589,7 @@ proc ::VMDPathFinder::build_gui {w} {
     # hardcoded 12), and the same scrolling combobox rather than a long menu.
     _color_menu $w.plotframe.nb.mean.exportbar.sc \
         ::VMDPathFinder::state(mean_surface_color_disp) \
-        [concat {hole_def property} [_vmd_color_names]] \
+        [concat {hole_def property watermelon} [_vmd_color_names]] \
         ::VMDPathFinder::_set_mean_surface_color 12
     set _mean_mats {Opaque Transparent BrushedMetal GlassBubble Glass1 Glass2 Glass3 \
               Glossy Diffuse Ghost AOChalky AOShiny AOEdgy BlownGlass RTChrome \
@@ -2992,6 +2995,30 @@ Stricter than Passage, which counts ions that merely entered."
         -command ::VMDPathFinder::toggle_frame_list
     pack $w.bottom.options.toggle -side left -padx {0 12}
     add_tooltip $w.bottom.options.toggle "Show/hide the list of every analyzed frame and its minimum radius."
+    # Time per saved frame: turns every per-frame axis (Over Time, Trends,
+    # Hydration per-frame, Ion & Water) from frame numbers into time. Shared
+    # by both modes. Empty or 0 keeps frames; the validator admits only
+    # digits and a point, so a negative value cannot be typed.
+    label $w.bottom.options.tf_l -text "Time/frame"
+    entry $w.bottom.options.tf -width 6 -justify right \
+        -textvariable ::VMDPathFinder::state(frame_time) \
+        -validate key -validatecommand {::VMDPathFinder::_frame_time_validate %P}
+    menubutton $w.bottom.options.tfu -textvariable ::VMDPathFinder::state(frame_time_unit_disp) \
+        -menu $w.bottom.options.tfu.m -relief raised -indicatoron 1 -width 3
+    menu $w.bottom.options.tfu.m -tearoff 0
+    foreach {_u _ul} {fs fs ps ps ns ns us "\u00b5s" ms ms} {
+        $w.bottom.options.tfu.m add radiobutton -label $_ul -value $_u \
+            -variable ::VMDPathFinder::state(frame_time_unit) \
+            -command [list ::VMDPathFinder::_frame_time_unit_pick $_u]
+    }
+    set ::VMDPathFinder::state(frame_time_unit_disp) [_frame_time_unit_label]
+    pack $w.bottom.options.tf_l -side left -padx {0 3}
+    pack $w.bottom.options.tf -side left
+    pack $w.bottom.options.tfu -side left -padx {2 0}
+    add_tooltip $w.bottom.options.tf "Simulation time between saved frames, in the unit beside it. Per-frame plots then show time instead of frame numbers; empty or 0 shows frames. Also the frame interval of the permeation rate."
+    foreach _ev {<Return> <KP_Enter> <FocusOut>} {
+        bind $w.bottom.options.tf $_ev ::VMDPathFinder::_frame_time_changed
+    }
     # Smoothing sits under the frame buttons, at the right edge of this row.
     label   $w.bottom.options.sm_l -text "Smooth"
     spinbox $w.bottom.options.sm -width 3 -from 0 -to 99 -increment 1 -justify right \
@@ -3021,7 +3048,7 @@ Stricter than Passage, which counts ions that merely entered."
     frame $w.bottom.detail
     # Column header - font matches listbox entries.
     label $w.bottom.detail.header \
-        -text [format "  %-5s  %8s  %s" "Frame" "Radius(Å)" "Time"] \
+        -text [format "  %-5s  %8s  %s" "Frame" "Radius(Å)" "Computed"] \
         -anchor w -font {Courier 9} -relief groove -bd 1 -padx 4
     listbox $w.bottom.detail.list -height 5 -exportselection 0 -font {Courier 9}
     scrollbar $w.bottom.detail.scroll -orient vertical -command [list $w.bottom.detail.list yview]
@@ -3535,7 +3562,7 @@ proc ::VMDPathFinder::_tunnel_effective_flatcolor_cid {cid} {
     # the averaged tube per-sphere (_tunnel_mean_property_spheres) and only
     # falls back to this when that sampling returns nothing.
     set cmode [_tunnel_effective_colormode_cid $cid]
-    if {$cmode ne "auto" && $cmode ne "property"} { return $cmode }
+    if {$cmode ni {auto property watermelon}} { return $cmode }
     return [_tunnel_color [expr {$cid-1}]]
 }
 
@@ -5987,10 +6014,10 @@ proc ::VMDPathFinder::draw_tunnel_heatmap {} {
         if {$fidx >= $nframes} { set fidx [expr {$nframes - 1}] }
         set x [expr {$margin_l + ($col + 0.5) * $cell_w}]
         set y [expr {$margin_t + $plot_h + 5}]
-        $cv create text $x $y -text "F[lindex $valid_frames $fidx]" -anchor n -font {Helvetica 8}
+        $cv create text $x $y -text [_frame_tick_text [lindex $valid_frames $fidx]] -anchor n -font {Helvetica 8}
     }
     $cv create text [expr {$margin_l + $plot_w / 2}] [expr {$ch - 5}] \
-        -text "Frame" -anchor s -font {Helvetica 9 bold}
+        -text [_frame_axis_label] -anchor s -font {Helvetica 9 bold}
     set n_yticks 5
     for {set ti 0} {$ti < $n_yticks} {incr ti} {
         set bi [expr {int($ti * ($nbins - 1) / double($n_yticks - 1))}]
@@ -6205,8 +6232,10 @@ proc ::VMDPathFinder::draw_tunnel_profile_plot {} {
     # color override), same as HOLE's own Fill (want_color, ~line 26035) is
     # independent of anything else: a tunnel with its own flat-color override
     # can still show Fill.
+    # Watermelon colour mode fills by the route's own radius, no property needed.
+    set _wm_fill [expr {$id ne "" && [_tunnel_effective_colormode $id] eq "watermelon"}]
     set want_fill [expr {[info exists state(profile_view_mode)] && $state(profile_view_mode) eq "fill" \
-            && $_eff_prop ne "none" && $_eff_prop ne "" \
+            && (($_eff_prop ne "none" && $_eff_prop ne "") || $_wm_fill) \
             && $frame ne "" && $id ne ""}]
     # +28 for the legend strip when Fill is on, matching draw_profile_plot's own
     # 44->72 bump for state(profile_color) - same template, same reason.
@@ -6235,7 +6264,20 @@ proc ::VMDPathFinder::draw_tunnel_profile_plot {} {
     # correct ones (_tunnel_property_range, MOLE's own per-frame data), only
     # the ramp's shape (diverging vs sequential) can be generically wrong.
     set fill_plo ""; set fill_phi ""
-    if {$want_fill} {
+    if {$want_fill && $_wm_fill} {
+        set fill_plo 0; set fill_phi 18
+        set n [llength $dists]
+        for {set i 0} {$i < $n-1} {incr i} {
+            lassign [_tpp_pt [lindex $dists $i] [lindex $radii $i] \
+                $xmin $xmax $ymin $ymax $ml $mt $pw $ph $swap] x0 y0
+            lassign [_tpp_pt [lindex $dists [expr {$i+1}]] [lindex $radii [expr {$i+1}]] \
+                $xmin $xmax $ymin $ymax $ml $mt $pw $ph $swap] x1 y1
+            set col [watermelon_hex [expr {([lindex $radii $i] + [lindex $radii [expr {$i+1}]])/2.0}]]
+            lassign [_tpp_base $x0 $y0 $ml $mt $pw $ph $swap] bx0 by0
+            lassign [_tpp_base $x1 $y1 $ml $mt $pw $ph $swap] bx1 by1
+            $cv create polygon $x0 $y0 $x1 $y1 $bx1 $by1 $bx0 $by0 -fill $col -outline $col
+        }
+    } elseif {$want_fill} {
         set prop $_eff_prop
         set spheres [_tunnel_property_spheres $frame $id $prop]
         lassign [_tunnel_property_range $frame $prop] plo phi
@@ -6321,7 +6363,9 @@ proc ::VMDPathFinder::draw_tunnel_profile_plot {} {
     # silently fall back to kd's "hydrophilic"/"hydrophobic" wording - wrong for
     # e.g. mutability or logP. The token name + real numeric endpoints is honest;
     # inventing a direction word for tokens this plugin doesn't define is not.
-    if {$want_fill && $fill_plo ne ""} {
+    if {$want_fill && $_wm_fill} {
+        _draw_watermelon_legend_h $cv $ml [expr {$mt+$ph+22}] $pw
+    } elseif {$want_fill && $fill_plo ne ""} {
         set lx $ml; set lw $pw
         set ly [expr {$mt+$ph+22}]
         for {set i 0} {$i < $lw} {incr i} {
@@ -6537,7 +6581,7 @@ proc ::VMDPathFinder::draw_tunnel_trends_plot {} {
         set xv [expr {round($xmin + ($xmax-$xmin)*$k/4.0)}]
         set xx [_tpp_x $xv $xmin $xmax $ml $pw]
         $cv create line $xx [expr {$mt+$ph}] $xx [expr {$mt+$ph+4}] -fill "#666666"
-        $cv create text $xx [expr {$mt+$ph+6}] -anchor n -font {Helvetica 7} -text $xv
+        $cv create text $xx [expr {$mt+$ph+6}] -anchor n -font {Helvetica 7} -text [_frame_tick_text $xv]
         set yv [expr {$ymin + ($ymax-$ymin)*$k/4.0}]
         set yy [_tpp_y $yv $ymin $ymax $mt $ph]
         $cv create line [expr {$ml-4}] $yy $ml $yy -fill "#666666"
@@ -6576,7 +6620,7 @@ proc ::VMDPathFinder::draw_tunnel_trends_plot {} {
     }
     $cv create text [expr {$ml+$pw/2}] 24 -anchor n -font {Helvetica 7} -fill "#888888" \
         -text $_sub
-    $cv create text [expr {$ml+$pw/2}] [expr {$ch-6}] -anchor s -font {Helvetica 9 bold} -text "Frame"
+    $cv create text [expr {$ml+$pw/2}] [expr {$ch-6}] -anchor s -font {Helvetica 9 bold} -text [_frame_axis_label]
     ::VMDPathFinder::_cv_vtext $cv 14 [expr {$mt+$ph/2}] -anchor n -font {Helvetica 9 bold} -text "Bottleneck radius (Å)"
 }
 
@@ -7131,7 +7175,7 @@ proc ::VMDPathFinder::_sync_profile_exportbar_for_mode {} {
     if {[winfo exists $meb.sc.m]} {
         catch {
             $meb.sc.m delete 0 end
-            set _mcnames [concat {property} [_vmd_color_names]]
+            set _mcnames [concat {property watermelon} [_vmd_color_names]]
             if {!$tunnel} { set _mcnames [linsert $_mcnames 0 hole_def] }
             foreach _mcv $_mcnames {
                 $meb.sc.m add radiobutton -label $_mcv -value $_mcv \
@@ -7798,14 +7842,13 @@ proc ::VMDPathFinder::show_tunnel_global_gear_settings {} {
     if {![info exists state(tunnel_display_color)] || $state(tunnel_display_color) eq ""} {
         set state(tunnel_display_color) auto
     }
-    set ::VMDPathFinder::_tgear_gcol_disp [expr {$state(tunnel_display_color) eq "auto" ? "Rank" \
-        : ($state(tunnel_display_color) eq "property" ? "Property" : $state(tunnel_display_color))}]
+    set ::VMDPathFinder::_tgear_gcol_disp [_tunnel_colormode_label $state(tunnel_display_color)]
     # Auto FIRST - it is the default, so the list opens on the entry that is
     # already in force. Property second (it is the one choice that reveals
     # another control, to its right), then every flat color. Scrolling
     # combobox, not a long menu (see _color_menu).
     _color_menu $d.sc ::VMDPathFinder::_tgear_gcol_disp \
-        [concat [list "Rank" "Property"] [_tunnel_color_names]] \
+        [concat [list "Rank" "Property" "Watermelon"] [_tunnel_color_names]] \
         ::VMDPathFinder::_tunnel_global_gear_color_pick 16
     grid $d.sc -row $row -column 1 -sticky w -padx 8 -pady 3
     add_tooltip $d.sc "Default color for every tunnel: a fixed choice, or Property to color by a MOLE lining property. A tunnel with its OWN gear override (⚙ on its row) keeps that instead."
@@ -8075,9 +8118,10 @@ proc ::VMDPathFinder::_tunnel_effective_repr {i} {
 proc ::VMDPathFinder::_tunnel_colormode_label {mode} {
     # ONE place that turns a colormode token into display text, so the global
     # gear and every per-tunnel gear cannot word the same state differently.
-    if {$mode eq "auto"}     { return "Rank" }
-    if {$mode eq "property"} { return "Property" }
-    if {$mode eq ""}         { return "Rank" }
+    if {$mode eq "auto"}       { return "Rank" }
+    if {$mode eq "property"}   { return "Property" }
+    if {$mode eq "watermelon"} { return "Watermelon" }
+    if {$mode eq ""}           { return "Rank" }
     return $mode
 }
 
@@ -8322,7 +8366,9 @@ proc ::VMDPathFinder::_tunnel_scalebar_prop {} {
     # now, whatever tunnel_gear_prop happens to still hold from a past pick).
     variable state
     set _id [expr {[info exists state(tunnel_selected_id)] ? $state(tunnel_selected_id) : ""}]
-    if {[_tunnel_effective_colormode $_id] ne "property"} { return "none" }
+    set _cm [_tunnel_effective_colormode $_id]
+    if {$_cm eq "watermelon"} { return "watermelon" }
+    if {$_cm ne "property"} { return "none" }
     return [_tunnel_effective_prop $_id]
 }
 
@@ -8481,7 +8527,7 @@ proc ::VMDPathFinder::show_tunnel_gear_settings {i} {
     # "Rank (auto)" and reading "Rank (auto)" back is the whole
     # point of the change.
     _color_menu $d.sc ::VMDPathFinder::_tgear_col_disp \
-        [concat [list "Property" [_tunnel_inherited_label $i]] [_tunnel_color_names]] \
+        [concat [list "Property" "Watermelon" [_tunnel_inherited_label $i]] [_tunnel_color_names]] \
         [list ::VMDPathFinder::_tunnel_gear_color_pick $i] 16
     grid $d.sc -row $row -column 1 -sticky w -padx 8 -pady 3
     add_tooltip $d.sc "This tunnel's own color: the global default (header gear), a fixed choice, or Property to color it by a MOLE lining property."
@@ -8549,6 +8595,7 @@ proc ::VMDPathFinder::_tunnel_global_gear_color_pick {label} {
     # are not literal color names.
     switch -- $label {
         "Property"           { _tunnel_global_gear_color_set property }
+        "Watermelon"         { _tunnel_global_gear_color_set watermelon }
         "Rank"               { _tunnel_global_gear_color_set auto }
         "Auto rank color"    { _tunnel_global_gear_color_set auto }
         default              { _tunnel_global_gear_color_set $label }
@@ -8562,6 +8609,7 @@ proc ::VMDPathFinder::_tunnel_gear_color_pick {i label} {
     # "Global default", so match on the suffix - the prefix changes with
     # whatever the global is currently set to.
     if {$label eq "Property"} { _tunnel_gear_color_set $i property; return }
+    if {$label eq "Watermelon"} { _tunnel_gear_color_set $i watermelon; return }
     if {$label eq "Global default" || [_tunnel_is_inherited_label $label]} {
         _tunnel_gear_color_set $i ""
         return
@@ -20275,7 +20323,7 @@ proc ::VMDPathFinder::_cavity_volume_plot {tid} {
         set xv [expr {round($xmin + ($xmax-$xmin)*$k/4.0)}]
         set xx [_tpp_x $xv $xmin $xmax $ml $pw]
         $cv create line $xx [expr {$mt+$ph}] $xx [expr {$mt+$ph+4}] -fill "#666666"
-        $cv create text $xx [expr {$mt+$ph+6}] -anchor n -font {Helvetica 7} -text $xv
+        $cv create text $xx [expr {$mt+$ph+6}] -anchor n -font {Helvetica 7} -text [_frame_tick_text $xv]
         set yv [expr {$ymin + ($ymax-$ymin)*$k/4.0}]
         set yy [_tpp_y $yv $ymin $ymax $mt $ph]
         $cv create line [expr {$ml-4}] $yy $ml $yy -fill "#666666"
@@ -21214,6 +21262,92 @@ proc ::VMDPathFinder::_metrics_water_probe {} {
     set p [expr {[info exists state(metrics_water_probe)] ? [string trim $state(metrics_water_probe)] : ""}]
     if {![_is_finite $p] || $p < 0} { return 1.15 }
     return $p
+}
+
+proc ::VMDPathFinder::_frame_time_dt {} {
+    # Simulation time per saved frame, in the chosen unit; 0 when the field is
+    # empty, not a number, or not positive (plots then show frame numbers).
+    variable state
+    if {![info exists state(frame_time)]} { return 0 }
+    set v [string trim $state(frame_time)]
+    if {![_is_finite $v] || $v <= 0} { return 0 }
+    return $v
+}
+
+proc ::VMDPathFinder::_frame_time_unit {} {
+    variable state
+    set u [expr {[info exists state(frame_time_unit)] ? $state(frame_time_unit) : "ns"}]
+    if {$u ni {fs ps ns us ms}} { set u ns }
+    return $u
+}
+
+proc ::VMDPathFinder::_frame_time_unit_label {} {
+    set u [_frame_time_unit]
+    return [expr {$u eq "us" ? "\u00b5s" : $u}]
+}
+
+proc ::VMDPathFinder::_frame_axis_label {} {
+    # The x-axis title of a per-frame plot: "Frame", or the time unit.
+    if {[_frame_time_dt] > 0} { return "Time ([_frame_time_unit_label])" }
+    return "Frame"
+}
+
+proc ::VMDPathFinder::_frame_to_time {frame} {
+    # frame index x time per frame; the frame number itself when no time is set.
+    set dt [_frame_time_dt]
+    if {$dt <= 0 || ![string is double -strict $frame]} { return $frame }
+    return [expr {$frame * $dt}]
+}
+
+proc ::VMDPathFinder::_frame_tick_text {frame} {
+    # Tick label for one frame on a per-frame axis: the frame number, or its
+    # time with the decimals the step needs.
+    set dt [_frame_time_dt]
+    if {$dt <= 0 || ![string is double -strict $frame]} { return $frame }
+    set t [expr {$frame * $dt}]
+    if {abs($t) >= 100} { return [format %.0f $t] }
+    if {abs($t) >= 10} { return [format %.1f $t] }
+    return [format %.2f $t]
+}
+
+proc ::VMDPathFinder::_frame_time_ns {} {
+    # Time per frame in nanoseconds, for the permeation rate; "" when unset.
+    set dt [_frame_time_dt]
+    if {$dt <= 0} { return "" }
+    set f [dict get {fs 1e-6 ps 1e-3 ns 1.0 us 1e3 ms 1e6} [_frame_time_unit]]
+    return [expr {$dt * $f}]
+}
+
+proc ::VMDPathFinder::_csv_time_header {} {
+    # ",time_<unit>" for a frame-indexed CSV when a time per frame is set, else "".
+    if {[_frame_time_dt] <= 0} { return "" }
+    return ",time_[_frame_time_unit]"
+}
+
+proc ::VMDPathFinder::_csv_time_cell {frame} {
+    if {[_frame_time_dt] <= 0} { return "" }
+    return ",[format %.6g [_frame_to_time $frame]]"
+}
+
+proc ::VMDPathFinder::_frame_time_validate {new} {
+    # Entry validator: digits and one decimal point only, so a negative or a
+    # word can never be typed.
+    return [regexp {^[0-9]*\.?[0-9]*$} $new]
+}
+
+proc ::VMDPathFinder::_frame_time_unit_pick {u} {
+    variable state
+    set state(frame_time_unit) $u
+    set state(frame_time_unit_disp) [_frame_time_unit_label]
+    _frame_time_changed
+}
+
+proc ::VMDPathFinder::_frame_time_changed {args} {
+    # Redraw whatever per-frame plot is on screen and refresh the Frames list
+    # header, so the axis follows the field at once.
+    variable _mem_swapping
+    if {[info exists _mem_swapping] && $_mem_swapping} { return }
+    catch {redraw_visible_analysis_tab}
 }
 
 proc ::VMDPathFinder::_num_or {key def positive} {
@@ -22168,7 +22302,7 @@ proc ::VMDPathFinder::render_tunnels_for_frame {frame {draft 0}} {
         # GLOBAL flat color (state(tunnel_display_color) = a literal name, no
         # per-tunnel override anywhere) unresolved and fall back to auto rank
         # color instead.
-        set _gcolor [expr {($cmode ne "auto" && $cmode ne "property") ? $cmode : ""}]
+        set _gcolor [expr {($cmode ni {auto property watermelon}) ? $cmode : ""}]
         # esp has no per-residue value to bake, only per-point ones - it always
         # takes the sphere-interpolated path below, whatever the 3D switch says.
         set use3d [expr {[info exists state(tunnel_hydro3d_accurate)] \
@@ -22276,6 +22410,13 @@ proc ::VMDPathFinder::render_tunnels_for_frame {frame {draft 0}} {
                         set done 1
                     }
                 }
+            }
+        }
+        if {!$done && $cmode eq "watermelon"} {
+            set _wm [_watermelon_plot $sph $plot 1 0 0]
+            if {$_wm ne ""} {
+                catch {render_vmd_plot_to_mol $_wm $m $_stride "" watermelon $_gmat 0 $_gwire}
+                set done 1
             }
         }
         if {!$done} {
@@ -22861,7 +23002,7 @@ proc ::VMDPathFinder::build_run_panel {parent} {
     # rather than being lost inside the color list. Values are shown lowercase
     # so "property" matches its siblings rather than standing out title-cased.
     _color_menu $parent.hs_box.sc ::VMDPathFinder::state(surface_color_disp) \
-        [concat {hole_def property pore_lat pore_lobes} [_vmd_color_names]] \
+        [concat {hole_def property watermelon pore_lat pore_lobes} [_vmd_color_names]] \
         ::VMDPathFinder::_set_surface_color 12
     label $parent.hs_box.pl -text "Property"
     # Custom menubutton: stores raw key (kd/ww/…) in hydro_scheme, shows
@@ -23173,7 +23314,7 @@ proc ::VMDPathFinder::_profile_fill_scheme_choices {} {
     # Over Time had pfdens removed for the same reason; the 3D surface keeps it,
     # because a per-frame surface needs a per-frame field and pfdens is the ONLY
     # water option there (labelled plainly - see _surface_scheme_label).
-    set out {}
+    set out [list watermelon "watermelon (radius)"]
     foreach {_v _l} [_property_scheme_choices] {
         if {$_v eq "pfdens"} continue
         lappend out $_v $_l
@@ -24611,6 +24752,7 @@ proc ::VMDPathFinder::close_gui {} {
     variable results
     _csg_server_close
     catch {_pw_shutdown}
+    catch {_watermelon_restore_vmd_colors}
     # Cancel any pending GUI-apply idle callbacks so a deferred handler can't fire
     # against the just-destroyed window (display/material re-apply, surface prebuild,
     # prewarm). The per-frame settle/scrub afters ARE torn down by remove_frame_trace
@@ -30676,6 +30818,7 @@ proc ::VMDPathFinder::property_meta {prop} {
     # here for those two (ionizable is a non-negative count, charge a net sum
     # that legitimately spans zero).
     switch -- $prop {
+        watermelon { return [dict create label "radius, watermelon bands" lo 0 hi 18 signed 0 loend closed hiend wide] }
         kd      { return [dict create label "kyte-doolittle hydropathy" lo -4.5  hi 4.5  signed 1 loend hydrophilic hiend hydrophobic] }
         ww      { return [dict create label "wimley-white interface hydrophobicity" lo -2.02 hi 1.85 signed 1 loend hydrophilic hiend hydrophobic] }
         kr      { return [dict create label "kapcha-rossky atomic" lo -1.0 hi 1.0 signed 1 loend polar hiend hydrophobic] }
@@ -30704,6 +30847,7 @@ proc ::VMDPathFinder::scheme_display_label {key} {
     # Lower-case labels, acronyms/symbols kept as-is (JSON, G(z)). Shared with
     # the picker menus (_property_scheme_choices).
     switch -- $key {
+        watermelon   { return "watermelon (radius)" }
         kd           { return "kyte-doolittle" }
         ww           { return "wimley-white" }
         chap_ww      { return "wimley-white (octanol-interface)" }
@@ -31050,6 +31194,15 @@ proc ::VMDPathFinder::property_scalebar_bands {prop} {
     # Color bands {name lo hi} spanning the scale, derived from property_meta so
     # every property gets a faithful bar (signed -> 7 diverging bands centred on
     # the neutral value; unsigned -> 4 sequential white->red bands).
+    if {$prop eq "watermelon"} {
+        lassign [watermelon_levels] bounds hexes slots
+        _watermelon_apply_vmd_colors
+        set out {}
+        foreach slot $slots lo [lrange $bounds 0 end-1] hi [lrange $bounds 1 end] {
+            lappend out [list $slot $lo $hi]
+        }
+        return $out
+    }
     set m [property_meta $prop]
     set lo [dict get $m lo]; set hi [dict get $m hi]
     if {[dict get $m signed]} {
@@ -31322,11 +31475,14 @@ proc ::VMDPathFinder::_scalebar_owner {} {
     if {[info exists state(surface_color)] && $state(surface_color) eq "property"} {
         return [list pore ""]
     }
+    if {[info exists state(surface_color)] && $state(surface_color) eq "watermelon"} {
+        return [list pore watermelon]
+    }
     if {[info exists state(show_mean_surface)] && $state(show_mean_surface) \
             && $mean_surface_mol >= 0 \
             && [info exists state(mean_surface_color)] \
-            && $state(mean_surface_color) eq "property"} {
-        return [list mean $state(mean_hydro_scheme)]
+            && $state(mean_surface_color) in {property watermelon}} {
+        return [list mean [expr {$state(mean_surface_color) eq "watermelon" ? "watermelon" : $state(mean_hydro_scheme)}]]
     }
     return {}
 }
@@ -31385,7 +31541,7 @@ proc ::VMDPathFinder::on_scalebar_visibility_changed {args} {
     if {$state(selected_result_frame) ne "" && \
             [dict exists $results $state(selected_result_frame)]} {
         set sph [dict get [dict get $results $state(selected_result_frame)] sph_file]
-        if {[file exists $sph]} { catch {draw_hydro_scalebar $sph} }
+        if {[file exists $sph]} { catch {draw_hydro_scalebar $sph $_sbscheme} }
     }
 }
 
@@ -39711,6 +39867,13 @@ proc ::VMDPathFinder::_hole_radius_band {r} {
     # CONNOLLY shell tube (which is rebuilt from the point cloud and so carries none of
     # sph_process's baked per-sphere colors) show the SAME red/green/blue radius bands the
     # circular surface gets.
+    # _band_mode watermelon (set by the builders while they write a _wm file)
+    # returns the watermelon slot instead.
+    variable _band_mode
+    if {[info exists _band_mode] && $_band_mode eq "watermelon"} {
+        if {![string is double -strict $r]} { set r 0.0 }
+        return [watermelon_vmd_color $r]
+    }
     if {![string is double -strict $r] || $r < 1.15} { return red }
     if {$r < 2.30} { return green }
     return blue
@@ -40177,9 +40340,10 @@ proc ::VMDPathFinder::_build_capsule_centerlines {sph_file out_plot cvect_s cpoi
     return $n
 }
 
-proc ::VMDPathFinder::_capsule_stack_path {run_dir form} {
-    # form: draw (triangles) or dots.
-    return [file join $run_dir "hole_capsule_stack[_surface_smooth_tag]_$form.vmd_plot"]
+proc ::VMDPathFinder::_capsule_stack_path {run_dir form {bands hole}} {
+    # form: draw (triangles) or dots; bands: hole (HOLE's three groups) or watermelon.
+    set _b [expr {$bands eq "watermelon" ? "_wm" : ""}]
+    return [file join $run_dir "hole_capsule_stack[_surface_smooth_tag]_$form$_b.vmd_plot"]
 }
 
 proc ::VMDPathFinder::_capsule_stack_slices {sph_file cvect_s cpoint_s endrad} {
@@ -40389,14 +40553,18 @@ proc ::VMDPathFinder::_build_capsule_stack {sph_file out_plot cvect_s cpoint_s e
     return [expr {$ntri > 0 ? $nr : 0}]
 }
 
-proc ::VMDPathFinder::_capsule_stack_plot {run_dir sph_file frame form} {
+proc ::VMDPathFinder::_capsule_stack_plot {run_dir sph_file frame form {bands hole}} {
     # The capsule surface for one frame, built if it is not on disk. "" if it
     # cannot be built.
     variable state
-    set plot [_capsule_stack_path $run_dir $form]
+    variable _band_mode
+    set plot [_capsule_stack_path $run_dir $form $bands]
     if {[geom_cache_valid $plot $sph_file]} { return $plot }
     lassign [_capsule_run_axis $run_dir] cp cv
-    set nr [_build_capsule_stack $sph_file $plot $cv $cp $state(endrad) $form [_surface_smooth_with $frame]]
+    set _band_mode $bands
+    set _rc [catch {_build_capsule_stack $sph_file $plot $cv $cp $state(endrad) $form [_surface_smooth_with $frame]} nr]
+    set _band_mode hole
+    if {$_rc} { catch {file delete $plot}; return "" }
     if {$nr < 2} { catch {file delete $plot}; return "" }
     geom_cache_mark $plot
     return $plot
@@ -41006,6 +41174,9 @@ proc ::VMDPathFinder::prebuild_surfaces_parallel {} {
             set sph_file [dict get $fdata sph_file]
             if {![file exists $sph_file]} continue
             if {[_capsule_stack_plot [dict get $fdata run_dir] $sph_file $frame $form] ne ""} { incr n }
+            if {$state(surface_color) eq "watermelon"} {
+                catch {_capsule_stack_plot [dict get $fdata run_dir] $sph_file $frame $form watermelon}
+            }
         }
         vmdcon -info "VMDPathFinder: surface pre-build complete for $n frame(s)."
         return
@@ -41067,7 +41238,14 @@ proc ::VMDPathFinder::prebuild_surfaces_parallel {} {
         if {[_csg_can_mesh] && ($mode eq "dots" || [_csg_active])} {
             set form [expr {$mode eq "dots" ? "dots" : ([_csg_draw_form] ? "draw" : "mol")}]
             set plot [surface_plot_name $run_dir [expr {$mode eq "dots" ? "hole_dots" : "hole_triangulated[_conn_surface_suffix]"}] $form]
-            lappend combined_jobs [list $frame [list |sh -c [surface_mesh_cmd $sph_file $plot $form "" 1 0 [_surface_smooth_with $frame]]]]
+            set _cmd [surface_mesh_cmd $sph_file $plot $form "" 1 0 [_surface_smooth_with $frame]]
+            # Watermelon colouring: build the banded copy in the same job, so
+            # playback finds it on disk.
+            if {$state(surface_color) eq "watermelon" && ![_run_uses_card conn] && ![_run_uses_card connolly]} {
+                set _wcmd [_watermelon_plot_cmd $sph_file $plot 0 [expr {$form eq "dots"}]]
+                if {$_wcmd ne ""} { append _cmd " && { $_wcmd; }" }
+            }
+            lappend combined_jobs [list $frame [list |sh -c $_cmd]]
             continue
         }
 
@@ -43642,7 +43820,7 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
         variable tunnel_result_frames
         variable tunnel_root
         catch {$w.bottom.detail.header configure \
-            -text [format "  %-5s  %5s  %8s  %s" "Frame" "Tuns" "Bneck(Å)" "Time"]}
+            -text [format "  %-5s  %5s  %8s  %s" "Frame" "Tuns" "Bneck(Å)" "Computed"]}
         foreach frame $tunnel_result_frames {
             set tuns [expr {[info exists tunnel_results($frame)] ? $tunnel_results($frame) : {}}]
             # "Best" = rank 1's own bottleneck, the same tunnel the list/3D
@@ -43675,7 +43853,7 @@ proc ::VMDPathFinder::_redisplay_results_list {} {
         return
     }
     catch {$w.bottom.detail.header configure \
-        -text [format "  %-5s  %8s  %s" "Frame" "Radius(Å)" "Time"]}
+        -text [format "  %-5s  %8s  %s" "Frame" "Radius(Å)" "Computed"]}
     foreach frame $result_frames {
         set fdata [dict get $results $frame]
         set profile [dict get $fdata profile]
@@ -48936,14 +49114,14 @@ proc ::VMDPathFinder::_draw_ion_passage_view {} {
     for {set k 0} {$k <= 4} {incr k} {
         set ff [expr {int(($nf-1)*$k/4.0)}]; set x [_ipv_x $ff $nf $ml $pw]
         $cv create line $x [expr {$mt+$ph}] $x [expr {$mt+$ph+4}] -fill "#666666"
-        $cv create text $x [expr {$mt+$ph+6}] -text $ff -anchor n -font {Helvetica 7}
+        $cv create text $x [expr {$mt+$ph+6}] -text [_frame_tick_text $ff] -anchor n -font {Helvetica 7}
     }
     for {set k 0} {$k <= 4} {incr k} {
         set zz [expr {$zmin+$zspan*$k/4.0}]; set y [_ipv_y $zz $zmin $zspan $mt $ph]
         $cv create line [expr {$ml-4}] $y $ml $y -fill "#666666"
         $cv create text [expr {$ml-6}] $y -text [format %.0f $zz] -anchor e -font {Helvetica 7}
     }
-    $cv create text [expr {$ml+$pw/2}] [expr {$H-6}] -text "Frame" -anchor s -font {Helvetica 9 bold}
+    $cv create text [expr {$ml+$pw/2}] [expr {$H-6}] -text [_frame_axis_label] -anchor s -font {Helvetica 9 bold}
     catch {::VMDPathFinder::_cv_vtext $cv 16 [expr {$mt+$ph/2}] -text "Z along pore axis (Å)" -anchor center -font {Helvetica 9 bold}}
 
     # "entered" is deliberate, not "permeated": it counts molecules that came
@@ -49072,14 +49250,14 @@ proc ::VMDPathFinder::_draw_ion_count_view {} {
     for {set k 0} {$k <= 4} {incr k} {
         set ff [expr {int(($nf-1)*$k/4.0)}]; set x [_ipv_x $ff $nf $ml $pw]
         $cv create line $x [expr {$mt+$ph}] $x [expr {$mt+$ph+4}] -fill "#666666"
-        $cv create text $x [expr {$mt+$ph+6}] -text $ff -anchor n -font {Helvetica 7}
+        $cv create text $x [expr {$mt+$ph+6}] -text [_frame_tick_text $ff] -anchor n -font {Helvetica 7}
     }
     for {set v $ybot} {$v <= $ytop} {incr v $ystep} {
         set y [expr {$mt + $ph - double($v-$ybot)/$yspan*$ph}]
         $cv create line [expr {$ml-4}] $y $ml $y -fill "#666666"
         $cv create text [expr {$ml-6}] $y -text $v -anchor e -font {Helvetica 7}
     }
-    $cv create text [expr {$ml+$pw/2}] [expr {$H-6}] -text "Frame" -anchor s -font {Helvetica 9 bold}
+    $cv create text [expr {$ml+$pw/2}] [expr {$H-6}] -text [_frame_axis_label] -anchor s -font {Helvetica 9 bold}
     catch {::VMDPathFinder::_cv_vtext $cv 16 [expr {$mt+$ph/2}] -text "[string totitle $_noun] in pore" \
         -anchor center -font {Helvetica 9 bold}}
     set _cf ""
@@ -49489,7 +49667,7 @@ proc ::VMDPathFinder::_run_permeation {} {
     }
     set zlo $state(perm_zlo); set zhi $state(perm_zhi)
     if {$zlo > $zhi} { set t $zlo; set zlo $zhi; set zhi $t }
-    set dt [expr {[_is_finite $state(perm_ns_per_frame)] && $state(perm_ns_per_frame) > 0 ? $state(perm_ns_per_frame) : ""}]
+    set dt [expr {[_is_finite $state(perm_ns_per_frame)] && $state(perm_ns_per_frame) > 0 ? $state(perm_ns_per_frame) : [_frame_time_ns]}]
     set volt $state(perm_voltage)
     set state(status) "Counting ion permeation over the trajectory..."
     catch {update idletasks}
@@ -50108,8 +50286,8 @@ proc ::VMDPathFinder::export_tunnel_trends_csv {} {
     if {$fn eq ""} { return }
     set fh [open $fn w]
     puts $fh "# VMDPathFinder tunnel [string tolower [_tunnel_trend_label]] over time. tunnel=$id"
-    puts $fh "frame,$_mcol"
-    foreach f $fs b $bs { puts $fh "$f,[format %.4f $b]" }
+    puts $fh "frame[_csv_time_header],$_mcol"
+    foreach f $fs b $bs { puts $fh "$f[_csv_time_cell $f],[format %.4f $b]" }
     close $fh
     set state(status) "Tunnel [_tunnel_trend_label] exported to [file tail $fn]"
 }
@@ -50148,7 +50326,7 @@ proc ::VMDPathFinder::export_metrics_csv {} {
     foreach sp $SPECIES_ORDER { lappend spcols "${sp}_bare" "${sp}_hyd" }
     ;# No "reliability" column: we export HOLE's ohmic Gmacro without a good/bad verdict
     ;# (neither HOLE nor Smart et al. 1997 report one - see conductance_reliability).
-    puts $fh "frame,min_radius_A,length_A,volume_A3,waters,cond_F_perA,kappa_S_per_m,G_ohmic_pS,G_access_pS,G_ellipse_pS,G_ellipse_corrected_pS,Ellipse_Volume_A3,Electrostatic_Potential_kcal_per_mol_e,Ellipse_Min_R_A,[join $spcols ,]"
+    puts $fh "frame[_csv_time_header],min_radius_A,length_A,volume_A3,waters,cond_F_perA,kappa_S_per_m,G_ohmic_pS,G_access_pS,G_ellipse_pS,G_ellipse_corrected_pS,Ellipse_Volume_A3,Electrostatic_Potential_kcal_per_mol_e,Ellipse_Min_R_A,[join $spcols ,]"
     set nfr [llength $result_frames]
     set state(status) "Exporting CSV: computing ellipse metrics for $nfr frame(s)..."
     catch {update idletasks}
@@ -50191,8 +50369,8 @@ proc ::VMDPathFinder::export_metrics_csv {} {
             set e [dict get $pass $sp]
             lappend spvals [dict get $e pass_bare] [dict get $e pass_hyd]
         }
-        puts $fh [format "%s,%.4f,%.3f,%.2f,%d,%s,%.3f,%s,%s,%s,%s,%s,%s,%s,%s" \
-            $frame [dict get $m min_radius] [dict get $m length] [dict get $m volume] \
+        puts $fh [format "%s%s,%.4f,%.3f,%.2f,%d,%s,%.3f,%s,%s,%s,%s,%s,%s,%s,%s" \
+            $frame [_csv_time_cell $frame] [dict get $m min_radius] [dict get $m length] [dict get $m volume] \
             [expr {int([dict get $m volume]/30.0)}] $F [dict get $m kappa] \
             $go $ga $geo $geco $evolo $epot $emro [join $spvals ,]]
         if {$i % 200 == 0 || $i == $nfr} {
@@ -51268,7 +51446,13 @@ proc ::VMDPathFinder::draw_profile_plot {frame} {
         set pmolid [expr {[dict exists $results $frame draw_molid] ? \
             [dict get $results $frame draw_molid] : [resolve_molid_or -1]}]
         set _psch [expr {[info exists state(profile_color_scheme)] ? $state(profile_color_scheme) : $state(hydro_scheme)}]
-        if {$_psch eq "esp"} {
+        if {$_psch eq "watermelon"} {
+            # The fill IS the radius: the profile's own points, no alignment.
+            set coords [dict get $profile xvalues]
+            set radii  [dict get $profile yvalues]
+            set hs     $radii
+            set have_h [expr {[llength $coords] >= 2}]
+        } elseif {$_psch eq "esp"} {
             if {![catch {esp_profile $pmolid $frame $psph} etr] && [llength $etr] >= 2} {
                 foreach t $etr { lassign $t c r h; lappend coords $c; lappend radii $r; lappend hs $h }
                 set have_h 1
@@ -51309,7 +51493,7 @@ proc ::VMDPathFinder::draw_profile_plot {frame} {
             set coords $_c; set radii $_r; set hs $_h
         }
     }
-    if {$have_h} {
+    if {$have_h && $_psch ne "watermelon"} {
         # The property profile is computed on the .sph PCA axis, whose origin/sign
         # differ from HOLE's own channel coordinate (used by the radius profile). Align
         # the property onto the radius profile's HOLE coordinate so Fill on/off show the
@@ -51572,7 +51756,9 @@ proc ::VMDPathFinder::draw_profile_plot {frame} {
     }
 
     # ---- Legend strip in bottom margin (below x-axis label) ----------------
-    if {$want_color && $have_h} {
+    if {$want_color && $have_h && $_psch eq "watermelon"} {
+        _draw_watermelon_legend_h $cv $ml [expr {$mt + $ph + 36}] $pw
+    } elseif {$want_color && $have_h} {
         set _psch2 [expr {[info exists state(profile_color_scheme)] ? $state(profile_color_scheme) : $state(hydro_scheme)}]
         set m [property_meta $_psch2]
         # ESP's adaptive range (computed above from $hs) overrides the fixed scale so
@@ -52935,7 +53121,8 @@ proc ::VMDPathFinder::render_vmd_plot_to_mol {plot_file mol {stride 1} {force_co
     # main-panel state - default "" preserves EXACTLY the prior behaviour (every other
     # call site keeps reading state(surface_color)/state(surface_material) unchanged).
     set _cmode [expr {$color_mode ne "" ? $color_mode : $state(surface_color)}]
-    set override [expr {$force_color ne "" || $_cmode ni {hole_def property pore_lat pore_lobes}}]
+    set override [expr {$force_color ne "" || $_cmode ni {hole_def watermelon property pore_lat pore_lobes}}]
+    if {$_cmode eq "watermelon" && $force_color eq ""} { _watermelon_apply_vmd_colors }
     set _ov_color [expr {$force_color ne "" ? $force_color : $_cmode}]
     # Wireframe: draw each surface triangle as its 3 edges (lines) instead of a
     # filled facet. This reuses the triangulated mesh with no extra build and no
@@ -53268,6 +53455,17 @@ proc ::VMDPathFinder::load_surface_for_frame {frame {draft 0}} {
             set property_uncached 1
         }
     }
+    if {$asset_kind eq "vmd_plot" && $state(surface_color) eq "watermelon"} {
+        set fsph [dict get [dict get $results $frame] sph_file]
+        set _wp ""
+        if {[_run_uses_card capsule]} {
+            set _wp [_capsule_stack_plot [dict get [dict get $results $frame] run_dir] $fsph $frame \
+                [expr {$state(display_mode) eq "dots" ? "dots" : "draw"}] watermelon]
+        } else {
+            set _wp [_watermelon_plot $fsph $render_path 0 [expr {$state(display_mode) eq "dots"}]]
+        }
+        if {$_wp ne ""} { set render_path $_wp } else { set property_uncached 1 }
+    }
     # An uncached property plot during a draft pass now only happens while PLAYING
     # (build_hydro_trinorm builds+colors the CURRENT frame during a manual scrub;
     # it returns {} only during playback, to protect the play watchdog). In that
@@ -53334,8 +53532,9 @@ proc ::VMDPathFinder::load_surface_for_frame {frame {draft 0}} {
     # agrees (_conn_lobe_uniform_scheme), not merely when one row does.
     set _lobe_scheme [expr {$state(surface_color) eq "pore_lobes" \
         ? [_conn_lobe_uniform_scheme] : ""}]
-    if {$state(surface_color) eq "property" || $_lobe_scheme ne ""} {
-        set _sb_scheme [expr {$_lobe_scheme ne "" ? $_lobe_scheme : $state(hydro_scheme)}]
+    if {$state(surface_color) in {property watermelon} || $_lobe_scheme ne ""} {
+        set _sb_scheme [expr {$_lobe_scheme ne "" ? $_lobe_scheme \
+            : ($state(surface_color) eq "watermelon" ? "watermelon" : $state(hydro_scheme))}]
         set need_scalebar [expr {
             $state(show_hydro_scalebar) && (
                 $hydro_scalebar_mol < 0 ||
@@ -54810,6 +55009,12 @@ proc ::VMDPathFinder::_profile_property_series {frame} {
     set sch [expr {[info exists state(profile_color_scheme)] ? \
         $state(profile_color_scheme) : $state(hydro_scheme)}]
     set tr {}
+    if {$sch eq "watermelon"} {
+        set _pf ""
+        catch {set _pf [ensure_profile_full $frame]}
+        if {$_pf eq "" || ![dict exists $_pf xvalues]} { return {} }
+        return [list [dict get $_pf xvalues] [dict get $_pf yvalues] radius_watermelon]
+    }
     switch -- $sch {
         esp    { catch {esp_profile $pmolid $frame $psph} tr }
         gz     { catch {gz_profile $psph} tr }
@@ -55018,6 +55223,9 @@ proc ::VMDPathFinder::export_heatmap_csv {} {
     set z_step [expr {($global_max_z - $global_min_z) / double($nbins)}]
     set fh [open $path w]
     # Header: z_bin, frame1, frame2, ...
+    if {[_frame_time_dt] > 0} {
+        puts $fh "# columns are frame numbers; time = frame x [_frame_time_dt] [_frame_time_unit]"
+    }
     set hdr "z_coordinate"
     foreach f $valid_frames { append hdr ",$f" }
     puts $fh $hdr
@@ -55183,6 +55391,9 @@ proc ::VMDPathFinder::_export_heatmap_property_csv {} {
     set global_min_z [dict get $bundle global_min_z]
     set z_step       [dict get $bundle z_step]
     set fh [open $path w]
+    if {[_frame_time_dt] > 0} {
+        puts $fh "# columns are frame numbers; time = frame x [_frame_time_dt] [_frame_time_unit]"
+    }
     set hdr "z_coordinate"
     foreach f $valid_frames { append hdr ",$f" }
     puts $fh $hdr
@@ -55283,8 +55494,129 @@ proc ::VMDPathFinder::watermelon_levels {} {
         #000000 #b22222 #ff0000 #ff7f50 #ffa07a
         #90ee90 #32cd32 #008000 #006400 #ffffff
     }
-    return [list $bounds $hexes]
+    # 3D surfaces take a VMD colour index per band: VMD's named palette has no
+    # light or dark greens, so the top ten colour-scale slots carry these RGBs
+    # (_watermelon_apply_vmd_colors), and the plot files name the slot.
+    set slots {1047 1048 1049 1050 1051 1052 1053 1054 1055 1056}
+    return [list $bounds $hexes $slots]
 }
+
+proc ::VMDPathFinder::watermelon_vmd_color {radius} {
+    # The VMD colour index for an absolute radius (Å), same edges as watermelon_hex.
+    lassign [watermelon_levels] bounds hexes slots
+    set n [llength $slots]
+    for {set i 0} {$i < $n} {incr i} {
+        if {$radius < [lindex $bounds [expr {$i + 1}]]} { return [lindex $slots $i] }
+    }
+    return [lindex $slots [expr {$n - 1}]]
+}
+
+proc ::VMDPathFinder::_watermelon_band_opts {} {
+    # The engine options that colour a mesh in watermelon bands.
+    lassign [watermelon_levels] bounds hexes slots
+    return [list --bands [join $bounds ,] --band-names [join $slots ,]]
+}
+
+proc ::VMDPathFinder::_watermelon_apply_vmd_colors {} {
+    # Load the band RGBs into their colour-scale slots. VMD rebuilds those
+    # slots whenever the colour scale method changes, so this runs before
+    # every watermelon draw; ten commands, cheap.
+    variable _watermelon_slots_set
+    lassign [watermelon_levels] bounds hexes slots
+    foreach h $hexes idx $slots {
+        scan [string range $h 1 end] %2x%2x%2x r g b
+        catch {color change rgb $idx [expr {$r/255.0}] [expr {$g/255.0}] [expr {$b/255.0}]}
+    }
+    set _watermelon_slots_set 1
+}
+
+proc ::VMDPathFinder::_watermelon_restore_vmd_colors {} {
+    # Give the colour-scale slots back to VMD's scale (close_gui).
+    variable _watermelon_slots_set
+    if {![info exists _watermelon_slots_set] || !$_watermelon_slots_set} { return }
+    catch {color scale method [colorinfo scale method]}
+    set _watermelon_slots_set 0
+}
+
+proc ::VMDPathFinder::_watermelon_plot {sph base_plot {union 0} {dots 0} {remesh 1}} {
+    # A copy of $base_plot coloured in watermelon bands, next to it as
+    # <base>_wm.vmd_plot, rebuilt when the base is newer. The marching-cubes
+    # mesher re-meshes with --bands (same geometry, the owning sphere's
+    # radius per triangle); otherwise sos_triangle recolours the draw-form
+    # base by the nearest centreline sphere's radius. Returns the path, or
+    # "" when neither works.
+    variable state
+    if {![file exists $base_plot] || ![file exists $sph]} { return "" }
+    set out "[file rootname $base_plot]_wm.vmd_plot"
+    if {[file exists $out] && [file mtime $out] >= [file mtime $base_plot] && [surface_has_geometry $out]} {
+        if {[_csg_plot_is_owned_form $out]} { _csg_own_plot $out }
+        return $out
+    }
+    set opts [_watermelon_band_opts]
+    # remesh 0: the base was cut or smoothed after meshing (mean tubes), so
+    # only the recolour keeps its geometry. A Connolly cloud is never
+    # re-meshed either: the mesher's owning spheres are the surface dots, whose
+    # own radius is not the pore radius - the recolour reads the centreline's
+    # Requiv instead.
+    if {!$union && ([_run_uses_card conn] || [_run_uses_card connolly])} { set remesh 0 }
+    if {$remesh && [_csg_can_mesh $union]} {
+        set spec [_csg_voxel_spec]
+        set _mopts [_csg_mesh_opts $sph]
+        set _with [_surface_smooth_with_dir [file dirname $sph]]
+        if {[llength $_with]} { lappend _mopts --with {*}$_with }
+        lappend _mopts {*}$opts
+        append spec \t [join $_mopts \t]
+        set verb [expr {$dots ? "meshdots" : ([_csg_plot_is_owned_form $base_plot] ? "mesh" : "meshdraw")}]
+        if {[_csg_server_mesh $sph $out $spec $verb] > 0 && [surface_has_geometry $out]} { return $out }
+        catch {file delete $out}
+    }
+    if {![_csg_plot_is_draw_form $base_plot]} { return "" }
+    set exe [string trim $state(sos_triangle_exec)]
+    if {$exe eq "" || ![file executable $exe]} { return "" }
+    set cmd "[shell_quote $exe] --recolor [shell_quote $base_plot] --hydro-sph [shell_quote $sph] --value-radius\
+        --bands [lindex $opts 1] --band-names [lindex $opts 3] > [shell_quote $out] 2>/dev/null"
+    if {[catch {exec sh -c $cmd}] || ![surface_has_geometry $out]} { catch {file delete $out}; return "" }
+    return $out
+}
+
+proc ::VMDPathFinder::_watermelon_plot_cmd {sph base_plot {union 0} {dots 0}} {
+    # Shell form of _watermelon_plot for the prebuild pool; "" when the base
+    # could not be coloured this way.
+    variable state
+    set out "[file rootname $base_plot]_wm.vmd_plot"
+    set opts [_watermelon_band_opts]
+    if {[_csg_can_mesh $union]} {
+        set flag [expr {$dots ? "--dots" : ([_csg_draw_form] ? "--draw" : "")}]
+        set _with [_surface_smooth_with_dir [file dirname $sph]]
+        set wflag ""
+        if {[llength $_with]} { set wflag "--with"; foreach w $_with { append wflag " [shell_quote $w]" } }
+        return "[shell_quote [tool_path mesh_csg]] [tool_args mesh_csg] [shell_quote $sph] [shell_quote $out]\
+            [_csg_voxel_spec] $flag [_csg_mesh_opts $sph] $wflag --bands [lindex $opts 1] --band-names [lindex $opts 3] > /dev/null 2>&1"
+    }
+    set exe [string trim $state(sos_triangle_exec)]
+    if {$exe eq ""} { return "" }
+    return "[shell_quote $exe] --recolor [shell_quote $base_plot] --hydro-sph [shell_quote $sph] --value-radius\
+        --bands [lindex $opts 1] --band-names [lindex $opts 3] > [shell_quote $out] 2>/dev/null"
+}
+
+proc ::VMDPathFinder::_csg_plot_is_owned_form {plot} {
+    # True when the file addresses $::VMDPathFinder::_gmol (the mesher's
+    # sourceable form).
+    set fh ""
+    if {[catch {open $plot r} fh]} { return 0 }
+    set head [read $fh 200]
+    close $fh
+    return [string match "*::VMDPathFinder::_gmol*" $head]
+}
+
+proc ::VMDPathFinder::_csg_plot_is_draw_form {plot} {
+    set fh ""
+    if {[catch {open $plot r} fh]} { return 0 }
+    set head [read $fh 4000]
+    close $fh
+    return [expr {[string first "draw " $head] >= 0}]
+}
+
 
 proc ::VMDPathFinder::watermelon_hex {radius} {
     # Map an absolute radius (Å) to its watermelon band. Edges are inclusive on
@@ -55295,6 +55627,22 @@ proc ::VMDPathFinder::watermelon_hex {radius} {
         if {$radius < [lindex $bounds [expr {$i + 1}]]} { return [lindex $hexes $i] }
     }
     return [lindex $hexes [expr {$n - 1}]]
+}
+
+proc ::VMDPathFinder::_draw_watermelon_legend_h {cv x y w {h 10}} {
+    # Horizontal band legend for a fill: one box per band, edge labels in Å.
+    lassign [watermelon_levels] bounds hexes
+    set nb [llength $hexes]
+    set bw [expr {double($w) / $nb}]
+    for {set i 0} {$i < $nb} {incr i} {
+        set x0 [expr {$x + $i * $bw}]
+        set x1 [expr {$x0 + $bw}]
+        $cv create rectangle $x0 $y $x1 [expr {$y + $h}] -fill [lindex $hexes $i] -outline "#555555"
+        $cv create text $x0 [expr {$y + $h + 1}] -text [format %g [lindex $bounds $i]] \
+            -anchor nw -font {Helvetica 7} -fill "#444444"
+    }
+    $cv create text [expr {$x + $w}] [expr {$y + $h + 1}] -text "[format %g [lindex $bounds $nb]] Å" \
+        -anchor ne -font {Helvetica 7} -fill "#444444"
 }
 
 proc ::VMDPathFinder::radius_to_hex_color {radius min_r max_r} {
@@ -56616,13 +56964,20 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
         # tunnel list's OWN property (state(tunnel_prop)/its gear override), same as
         # Pore Profile's tunnel Fill (see _sync_profile_exportbar_for_mode).
         set _tun_id [expr {[info exists state(tunnel_selected_id)] ? $state(tunnel_selected_id) : ""}]
+        # Watermelon: the fill is the bin's own mean radius in the radius
+        # bands, when the mean-surface colour (pore mode) or the route's
+        # colour mode (tunnel mode) says watermelon.
+        set _wm_fill 0
         if {$tunnel_mode} {
             set _msch [_tunnel_effective_prop $_tun_id]
             set _msch_lbl [::VMDPathFinder::_tunnel_prop_label $_msch]
+            set _wm_fill [expr {[_tunnel_effective_colormode $_tun_id] eq "watermelon"}]
         } else {
             set _msch [expr {[info exists state(mean_hydro_scheme)] ? $state(mean_hydro_scheme) : "kd"}]
             set _msch_lbl [scheme_display_label $_msch]
+            set _wm_fill [expr {[info exists state(mean_surface_color)] && $state(mean_surface_color) eq "watermelon"}]
         }
+        if {$_wm_fill} { set _msch watermelon; set _msch_lbl "watermelon (radius)" }
         # collect_binned_property can be a multi-second per-frame pass the first time a
         # scheme is picked, and it only updates the STATUS BAR - leaving the plot an
         # empty axis box that looks frozen. Paint a "calculating" note in the plot area
@@ -56632,7 +56987,11 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
             -font {Helvetica 11} -fill "#777777"]
         catch {update idletasks}
         set _t_fill0 [clock milliseconds]
-        if {$tunnel_mode} {
+        if {$_wm_fill} {
+            # one value per bin, index-parallel to $stats: the bin's mean radius
+            set prop {}
+            foreach _st [dict get $data stats] { lappend prop [expr {$_st eq {} ? "" : [lindex $_st 0]}] }
+        } elseif {$tunnel_mode} {
             set prop [_tunnel_collect_binned_property $nbins]
         } else {
             set prop [collect_binned_property $nbins $_msch $mean_frames $mean_key]
@@ -56657,7 +57016,7 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
         # data - pooled across every frame here (its own scan is per-frame, HOLE
         # mode's esp/gz branch above is the only other consumer that overrides
         # property_meta's default this way).
-        if {$tunnel_mode && $prop ne ""} {
+        if {$tunnel_mode && $prop ne "" && !$_wm_fill} {
             set _tr [_tunnel_property_range_pooled $_msch]
             if {$_tr ne ""} { lassign $_tr _esp_lo _esp_hi }
         }
@@ -56685,7 +57044,9 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
         # (draw_profile_plot), so property colors are readable here too instead of
         # unlabelled. Skipped when collect_binned_property returned nothing (the plain
         # light-blue fallback fill above has no color scale to explain).
-        if {$prop ne ""} {
+        if {$prop ne "" && $_wm_fill} {
+            _draw_watermelon_legend_h $cv $ml [expr {$mt + $ph + 30}] $pw
+        } elseif {$prop ne ""} {
             set _mm [property_meta $_msch]
             set _lo [expr {$_esp_lo ne "" ? $_esp_lo : [dict get $_mm lo]}]
             set _hi [expr {$_esp_hi ne "" ? $_esp_hi : [dict get $_mm hi]}]
@@ -57936,8 +58297,8 @@ proc ::VMDPathFinder::build_and_show_tunnel_mean_surface {} {
     }
     if {![info exists tunnel_gear_cid($cid,colormode)] || $tunnel_gear_cid($cid,colormode) eq ""} {
         if {[info exists state(mean_surface_color)] && $state(mean_surface_color) ni {"" auto}} {
-            if {$state(mean_surface_color) eq "property"} {
-                set _cmode "property"
+            if {$state(mean_surface_color) in {property watermelon}} {
+                set _cmode $state(mean_surface_color)
             } else {
                 set _cmode $state(mean_surface_color)
                 set _clr   $state(mean_surface_color)
@@ -57965,6 +58326,13 @@ proc ::VMDPathFinder::build_and_show_tunnel_mean_surface {} {
                     $_mat 0 [expr {$_repr eq "wire"}]
                 set _painted $_prop
             }
+        }
+    }
+    if {$_painted eq "" && $_repr ne "centerline" && $_cmode eq "watermelon"} {
+        set _wm [_watermelon_plot $sph $plot 1 0 0]
+        if {$_wm ne ""} {
+            render_vmd_plot_to_mol $_wm $tunnel_mean_surface_mol 1 "" watermelon $_mat 0 [expr {$_repr eq "wire"}]
+            set _painted watermelon
         }
     }
     if {$_painted eq ""} {
@@ -58804,7 +59172,17 @@ proc ::VMDPathFinder::_mean_vol_profile_radii {nbins} {
     return [list [dict get $b zmin] [dict get $b zstep] $radii]
 }
 
-proc ::VMDPathFinder::_mean_vol_holedef_plot {mean_dir tag base_plot nbins ref} {
+proc ::VMDPathFinder::_mean_vol_holedef_plot {mean_dir tag base_plot nbins ref {bands hole}} {
+    # Sets the band mode for the body below and always puts it back.
+    variable _band_mode
+    set _band_mode $bands
+    set _rc [catch {_mean_vol_holedef_plot_body $mean_dir $tag $base_plot $nbins $ref $bands} _res]
+    set _band_mode hole
+    if {$_rc} { return -code error $_res }
+    return $_res
+}
+
+proc ::VMDPathFinder::_mean_vol_holedef_plot_body {mean_dir tag base_plot nbins ref bands} {
     # hole_def on the volume, banded by the PORE radius.
     #
     # The volume's .sph radius is the voxel half-diagonal - one artificial value
@@ -58814,7 +59192,7 @@ proc ::VMDPathFinder::_mean_vol_holedef_plot {mean_dir tag base_plot nbins ref} 
     # the pore. Band each triangle by the mean profile's radius at its own axial
     # coordinate instead, through the same _hole_radius_band every other surface
     # uses.
-    set out [file join $mean_dir "mean_vol_${tag}_holedef.vmd_plot"]
+    set out [file join $mean_dir "mean_vol_${tag}_[expr {$bands eq "watermelon" ? "wm" : "holedef"}].vmd_plot"]
     if {[surface_has_geometry $out] && [file mtime $out] >= [file mtime $base_plot]} { return $out }
     set pr [_mean_vol_profile_radii $nbins]
     if {![llength $pr]} { return "" }
@@ -58880,8 +59258,9 @@ proc ::VMDPathFinder::_mean_vol_build {mean_dir nbins} {
         if {$want_prop} {
             set pp [_mean_vol_band_prop_plot $mean_dir $tag prop $plt $sph $nbins $ref]
             if {$pp ne ""} { set final $pp }
-        } elseif {$state(mean_surface_color) eq "hole_def"} {
-            set hp [_mean_vol_holedef_plot $mean_dir $tag $plt $nbins $ref]
+        } elseif {$state(mean_surface_color) in {hole_def watermelon}} {
+            set hp [_mean_vol_holedef_plot $mean_dir $tag $plt $nbins $ref \
+                [expr {$state(mean_surface_color) eq "watermelon" ? "watermelon" : "hole"}]]
             if {$hp ne ""} { set final $hp }
         }
         # Scale check, logged every build: the pore region against the 1-D mean
@@ -58945,6 +59324,8 @@ proc ::VMDPathFinder::_mean_vol_render {plot note} {
     catch {_update_surface_vis_buttons}
     if {$state(mean_surface_color) eq "property"} {
         catch {draw_hydro_scalebar "" $state(mean_hydro_scheme)}
+    } elseif {$state(mean_surface_color) eq "watermelon"} {
+        catch {draw_hydro_scalebar "" watermelon}
     }
 }
 
@@ -59134,6 +59515,10 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
         # axis fit, the binned-property computation, and every external
         # process call, and jump straight to rendering.
         set final_plot [expr {$want_prop ? $mean_plot_prop : $mean_plot}]
+        if {$state(mean_surface_color) eq "watermelon"} {
+            set _wm [_watermelon_plot $mean_sph $final_plot 1 0 0]
+            if {$_wm ne ""} { set final_plot $_wm }
+        }
         set draw_mol [resolve_molid]
         if {[dict exists $fdata draw_molid]} {
             set dm [dict get $fdata draw_molid]
@@ -59546,6 +59931,13 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
     # already uses for the per-frame surface's own Dots picker. A real surface
     # point cloud, not the axis-beads Centerline draws - see
     # _mean_dispmode_pore_choices.
+    if {$state(mean_surface_color) eq "watermelon" && $_mdm ne "centerline"} {
+        set _wm [_watermelon_plot $mean_sph $mean_plot 1 0 0]
+        if {$_wm ne ""} {
+            set mean_plot $_wm
+            set mean_plot_dots "[file rootname $_wm]_dots.vmd_plot"
+        }
+    }
     if {$_mdm eq "dots"} {
         set _dots_final [expr {$want_prop ? $mean_plot_prop_dots : $mean_plot_dots}]
         if {$ignore_cache || ![surface_has_geometry $_dots_final]} {
@@ -59590,6 +59982,8 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
     # in property mode - it still redraws correctly on the next scheme/frame change.
     if {$state(mean_surface_color) eq "property"} {
         catch {draw_hydro_scalebar $mean_sph $state(mean_hydro_scheme)}
+    } elseif {$state(mean_surface_color) eq "watermelon"} {
+        catch {draw_hydro_scalebar $mean_sph watermelon}
     }
     # One surface at a time, enforced in the BUILDER rather than only in the
     # checkbox handler and the status-row button. Anything that rebuilds and
@@ -59664,6 +60058,7 @@ proc ::VMDPathFinder::hydro_hex {h {scheme ""} {lo_ov ""} {hi_ov ""}} {
     # call sites pass the same adaptive bounds here so both views agree.
     variable state
     set prop [expr {$scheme ne "" ? $scheme : $state(hydro_scheme)}]
+    if {$prop eq "watermelon"} { return [watermelon_hex $h] }
     set m [property_meta $prop]
     if {$lo_ov ne "" && $hi_ov ne ""} {
         set t [normalize_raw_value $h $lo_ov $hi_ov [dict get $m signed]]
@@ -61796,7 +62191,7 @@ proc ::VMDPathFinder::draw_hydration_tab {} {
             ? "Instantaneous water free energy  G(z) = -kT ln(ρ/ρ_bulk)  per frame  (dewetting dynamics, $nf frames)" \
             : "Instantaneous water density  ρ/ρ_bulk  per frame  (dewetting dynamics, $nf frames)"}]
         $cv create text [expr {$ml + $pw/2}] 11 -text $_hm_ttl -anchor n -font {Helvetica 10 bold}
-        $cv create text [expr {$ml + $pw/2}] [expr {$ch - 4}] -text "Frame" -anchor s -font {Helvetica 9}
+        $cv create text [expr {$ml + $pw/2}] [expr {$ch - 4}] -text [_frame_axis_label] -anchor s -font {Helvetica 9}
         ::VMDPathFinder::_cv_vtext $cv 12 [expr {$mt + $ph/2}] -text "Channel coord (Å)" -anchor center -font {Helvetica 9}
         set zmin [lindex $coords 0]; set zmax [lindex $coords end]
         _hp_ticks $cv $ml $mt $pw $ph $zmin $zmax 6 yl "%.0f"
@@ -64335,10 +64730,10 @@ proc ::VMDPathFinder::draw_minr_tab {} {
         set cx [expr {$margin_l + ($fr - $xmin) / $xspan * $plot_w}]
         $cv create line $cx [expr {$margin_t + $plot_h}] $cx [expr {$margin_t + $plot_h + 4}] -fill black
         $cv create text $cx [expr {$margin_t + $plot_h + 6}] \
-            -text "F$fr" -anchor n -font {Helvetica 8}
+            -text [_frame_tick_text $fr] -anchor n -font {Helvetica 8}
     }
     $cv create text [expr {$margin_l + $plot_w / 2}] [expr {$ch - 4}] \
-        -text "Frame" -anchor s -font {Helvetica 9 bold}
+        -text [_frame_axis_label] -anchor s -font {Helvetica 9 bold}
     $cv create text [expr {$margin_l + $plot_w / 2}] 12 \
         -text [dict get $meta title] -anchor n -font {Helvetica 10 bold}
     # One-line caption for the less-obvious metrics (drawn under the title).
@@ -66352,10 +66747,10 @@ proc ::VMDPathFinder::draw_heatmap {} {
         if {$fidx >= $nframes} { set fidx [expr {$nframes - 1}] }
         set x [expr {$margin_l + ($col + 0.5) * $cell_w}]
         set y [expr {$margin_t + $plot_h + 5}]
-        $cv create text $x $y -text "F[lindex $valid_frames $fidx]" -anchor n -font {Helvetica 8}
+        $cv create text $x $y -text [_frame_tick_text [lindex $valid_frames $fidx]] -anchor n -font {Helvetica 8}
     }
     $cv create text [expr {$margin_l + $plot_w / 2}] [expr {$ch - 5}] \
-        -text "Frame" -anchor s -font {Helvetica 9 bold}
+        -text [_frame_axis_label] -anchor s -font {Helvetica 9 bold}
 
     # Y axis labels (z-coordinate)
     set n_yticks 5

@@ -25,6 +25,11 @@ figure.
 | Water G(z) | Water free energy derived from density | Requires Hydration Compute |
 | Water density | Water depletion field | Requires Hydration Compute |
 
+The Pore Profile **Fill** picker also offers `watermelon (radius)`: the fill
+is the profile's own radius in the ten watermelon bands. The Mean Profile fill
+and both tunnel fills use those bands whenever the matching surface color
+picker (Mean Profile color, or the tunnel's color mode) is set to watermelon.
+
 Tunnel mode offers Kyte–Doolittle, Wimley–White, Kapcha–Rossky,
 Fauchère–Pliska, the MOLE properties in the table, and electrostatic potential.
 In tunnel mode the potential is evaluated at the route's own points rather than

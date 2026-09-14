@@ -5161,6 +5161,30 @@ if {[winfo exists $_hp]} {
         ::VMDPathFinder::_update_method_dependent_controls
         report "pore_lat is absent for spherical" \
             [expr {[catch {$_sc index pore_lat}]}] ""
+        # Watermelon: a colour MODE beside hole_def, on every picker that
+        # colours a surface, and its ten VMD colour slots load on demand.
+        report "watermelon is offered on the pore surface colour picker" \
+            [expr {![catch {$_sc index watermelon}]}] ""
+        report "...and on the Mean Profile colour picker" \
+            [expr {![catch {$w.plotframe.nb.mean.exportbar.sc.m index watermelon}]}] ""
+        ::VMDPathFinder::_watermelon_apply_vmd_colors
+        report "the watermelon slots carry the band RGBs (slot 1047 black, 1056 white)" \
+            [expr {[lindex [colorinfo rgb 1047] 0] < 0.01 && [lindex [colorinfo rgb 1056] 0] > 0.99}] \
+            "(1047 [colorinfo rgb 1047]; 1056 [colorinfo rgb 1056])"
+        report "watermelon keeps the plot's own colours in the renderer gate" \
+            [expr {[string first {hole_def watermelon property} [info body ::VMDPathFinder::render_vmd_plot_to_mol]] >= 0}] ""
+        # Time/frame lives on the shared Frames bar and drives every per-frame axis.
+        report "the Frames bar has the Time/frame entry and unit menu" \
+            [expr {[winfo exists $w.bottom.options.tf] && [winfo exists $w.bottom.options.tfu]}] ""
+        set ::VMDPathFinder::state(frame_time) 0.5
+        ::VMDPathFinder::_frame_time_unit_pick ps
+        report "a set time per frame retitles the frame axis with its unit" \
+            [expr {[::VMDPathFinder::_frame_axis_label] eq "Time (ps)" && [::VMDPathFinder::_frame_tick_text 4] eq "2.00"}] \
+            "([::VMDPathFinder::_frame_axis_label] / [::VMDPathFinder::_frame_tick_text 4])"
+        set ::VMDPathFinder::state(frame_time) ""
+        ::VMDPathFinder::_frame_time_unit_pick ns
+        report "an empty field goes back to bare frame numbers" \
+            [expr {[::VMDPathFinder::_frame_axis_label] eq "Frame" && [::VMDPathFinder::_frame_tick_text 4] eq "4"}] ""
         set ::VMDPathFinder::state(pore_method) connolly
         # The real click path: the menu entry's own -command, not a state poke.
         set ::VMDPathFinder::state(display_mode) triangulated

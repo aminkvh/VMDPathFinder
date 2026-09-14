@@ -2189,12 +2189,15 @@ set _sv_m [expr {[info exists ::VMDPathFinder::state(conn_pore_margin)] ? $::VMD
 set _sv_pm $::VMDPathFinder::state(pore_method)
 set ::VMDPathFinder::state(pore_method) connolly
 set ::VMDPathFinder::state(conn_pore_gate) 0
-chk "gate off leaves the mesh filename alone" [::VMDPathFinder::_conn_surface_suffix] ""
+# Under sos_triangle the settle pass keeps the full cloud and tags "_full";
+# the marching-cubes mesher (when a multicall is configured) has no such tag.
+set _fx [expr {[::VMDPathFinder::_csg_can_mesh] ? "" : "_full"}]
+chk "gate off leaves the mesh filename alone" [::VMDPathFinder::_conn_surface_suffix] $_fx
 set ::VMDPathFinder::state(conn_pore_gate) 1
 set ::VMDPathFinder::state(conn_pore_margin) 2.0
-chk "gate on tags the mesh with its margin" [::VMDPathFinder::_conn_surface_suffix] "_porem20"
+chk "gate on tags the mesh with its margin" [::VMDPathFinder::_conn_surface_suffix] "${_fx}_porem20"
 set ::VMDPathFinder::state(conn_pore_margin) 3.5
-chk "a margin change moves the tag" [::VMDPathFinder::_conn_surface_suffix] "_porem35"
+chk "a margin change moves the tag" [::VMDPathFinder::_conn_surface_suffix] "${_fx}_porem35"
 set ::VMDPathFinder::state(pore_method) spherical
 chk "no other method sees the gate" [::VMDPathFinder::_conn_surface_suffix] ""
 set ::VMDPathFinder::state(pore_method) $_sv_pm
@@ -2208,7 +2211,8 @@ set _sv_g2  $::VMDPathFinder::state(conn_pore_gate)
 set ::VMDPathFinder::state(pore_method) connolly
 set ::VMDPathFinder::state(conn_pore_gate) 1
 set ::VMDPathFinder::state(conn_pore_margin) 2.0
-chk "the gate tags the mesh" [::VMDPathFinder::_conn_surface_suffix] "_porem20"
+chk "the gate tags the mesh" [::VMDPathFinder::_conn_surface_suffix] \
+    "[expr {[::VMDPathFinder::_csg_can_mesh] ? "" : "_full"}]_porem20"
 set ::VMDPathFinder::state(pore_method) spherical
 chk "it does not reach another method" [::VMDPathFinder::_conn_surface_suffix] ""
 set ::VMDPathFinder::state(pore_method) $_sv_pm2
@@ -2534,9 +2538,10 @@ chk "the 3D surface still does" \
            ? [lsearch -exact [::VMDPathFinder::_surface_scheme_choices] pfdens] >= 0 : 1}] 1
 chk "...and labels it plainly there, having no sibling to disambiguate from" \
     [::VMDPathFinder::_surface_scheme_label pfdens] "water density"
-chk "the Fill's own scheme list is a strict subset of the shared one" \
+chk "the Fill's own scheme list is the shared one plus watermelon, minus pfdens" \
     [expr {[llength [::VMDPathFinder::_profile_fill_scheme_choices]]
-           <= [llength [::VMDPathFinder::_property_scheme_choices]]}] 1
+           <= [llength [::VMDPathFinder::_property_scheme_choices]] + 2
+           && [lindex [::VMDPathFinder::_profile_fill_scheme_choices] 0] eq "watermelon"}] 1
 
 # --- Mean pore VOLUME, not a revolved tube -----------------------------------
 # Occupancy over the trajectory is well-posed where averaging point clouds is
@@ -4469,7 +4474,7 @@ chk "...using the placement axis, not the raw registered z" \
         [info body ::VMDPathFinder::_mean_vol_all_centers]] >= 0}] 1
 chk "...so the axial lookups project onto that axis" \
     [expr {[string first {($px-$ox)*$ux} [info body ::VMDPathFinder::_mean_vol_band_prop_plot]] >= 0 \
-        && [string first {($cx-$ox)*$ux} [info body ::VMDPathFinder::_mean_vol_holedef_plot]] >= 0}] 1
+        && [string first {($cx-$ox)*$ux} [info body ::VMDPathFinder::_mean_vol_holedef_plot_body]] >= 0}] 1
 # The knobs describe a volume that is not built until the box is ticked.
 chk "the volume knobs appear with the checkbox" \
     [expr {[string first {set _volon} [info body ::VMDPathFinder::_sync_mean_settings_lock]] >= 0}] 1
@@ -4779,12 +4784,12 @@ chk "no proc but the surface pipeline runs sph_process or sos_triangle for a mes
 # nothing about the pore.
 chk "hole_def is rebanded from the mean profile's own radius" \
     [expr {[string first {_hole_radius_band} \
-        [info body ::VMDPathFinder::_mean_vol_holedef_plot]] >= 0}] 1
+        [info body ::VMDPathFinder::_mean_vol_holedef_plot_body]] >= 0}] 1
 chk "...and the artificial per-sphere colours are dropped, not kept" \
     [expr {[string first {if {$kind eq "color"} { continue }} \
-        [info body ::VMDPathFinder::_mean_vol_holedef_plot]] >= 0}] 1
+        [info body ::VMDPathFinder::_mean_vol_holedef_plot_body]] >= 0}] 1
 chk "...banded per triangle by its own axial coordinate" \
-    [expr {[string first {zc} [info body ::VMDPathFinder::_mean_vol_holedef_plot]] >= 0}] 1
+    [expr {[string first {zc} [info body ::VMDPathFinder::_mean_vol_holedef_plot_body]] >= 0}] 1
 chk "...and the build routes hole_def through it" \
     [expr {[string first {_mean_vol_holedef_plot} [info body ::VMDPathFinder::_mean_vol_build]] >= 0}] 1
 # The band boundaries are HOLE's own, so a wide pore really is blue.

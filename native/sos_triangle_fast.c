@@ -334,6 +334,14 @@ int     n_atom=0;
 /* binary is byte-for-byte unchanged when --hydro3d-values is not given.       */
 char   hydro3d_path[2048] = "";
 int    hydro3d_mode = 0;         /* 1 = colour via hydro_at_point_3d(), not hydro_at_point() */
+/* --value-radius --bands E0,..,En --band-names N0,..,N(n-1): colour each
+   triangle by the radius of the centreline sphere whose surface is nearest its
+   centroid, in n absolute radius bands (the plugin's watermelon scale). */
+#define SOS_MAXBANDS 32
+int    hydro_bands_mode = 0;
+static double band_edge[SOS_MAXBANDS + 1]; static char *band_name[SOS_MAXBANDS];
+static int n_bands = 0, n_band_edges = 0;
+static int *cl_idx = NULL, n_cl = 0;   /* centreline spheres (not flood/escaped, r > 0) */
 double hydro3d_bandwidth = 3.0;  /* Gaussian-kernel bandwidth (A), --hydro3d-bandwidth  */
 double *res3d_x=NULL,*res3d_y=NULL,*res3d_z=NULL,*res3d_h=NULL;
 int     n_res3d=0;
@@ -685,6 +693,11 @@ static double normalize_raw(double v)
 /* normalized values (legacy); the legacy atom-averaging path uses the kd/ww ramp.*/
 static const char *surface_color_name(double v)
 {
+  if (hydro_bands_mode) {
+    int b;
+    for (b = 0; b < n_bands; b++) if (v < band_edge[b + 1]) return band_name[b];
+    return band_name[n_bands - 1];
+  }
   if (hydro_values_mode || hydro3d_mode) {
     return norm_color_name(hydro_have_range ? normalize_raw(v) : v);
   }
@@ -1775,6 +1788,15 @@ static double r3(double v) { return nearbyint(v * 1000.0) / 1000.0; }
 static double hydro_at_point(double px, double py, double pz)
 {
   int k; double best = 1e20, best_h = 0.0;
+  if (hydro_bands_mode) {
+    for (k = 0; k < n_cl; k++) {
+      int s = cl_idx[k];
+      double dx = px-sph_x[s], dy = py-sph_y[s], dz = pz-sph_z[s];
+      double d = sqrt(dx*dx + dy*dy + dz*dz) - sph_r[s];
+      if (d < best) { best = d; best_h = sph_r[s]; }
+    }
+    return best_h;
+  }
   for (k = 0; k < n_thin; k++) {
     int s = thin[k];
     double dx = px-sph_x[s], dy = py-sph_y[s], dz = pz-sph_z[s];
@@ -1813,6 +1835,14 @@ static void hydro_load(void)
     return;
   }
   if (n_sph <= 0) return;
+  if (hydro_bands_mode) {
+    int i;
+    cl_idx = xa_malloc((n_sph + 1) * sizeof(int)); n_cl = 0;
+    for (i = 0; i < n_sph; i++)
+      if (!sph_flood[i] && sph_r[i] > 0.005 && sph_r[i] < 999.0) cl_idx[n_cl++] = i;
+    hydro_thin_spheres();
+    return;
+  }
   if (hydro_values_mode) {
     hydro_read_values();
     hydro_thin_spheres();
@@ -3400,6 +3430,7 @@ int main (int argc, char *argv[])
 	      "--hydro3d-values","--hydro3d-values-in","--hydro3d-atoms","--hydro3d-lining",
 	      "--hydro3d-facing","--hydro3d-thresh","--hydro3d-bandwidth","--hydro3d-props",
 	      "--hydro-signed","--hydro-scheme","--hydro-shell","--batch","--batch-recolor",
+	      "--bands","--band-names",
 	      "--batch-hydro3d-props","--batch-hydro3d-recolor",
 	      "--batch-asym-ellipse","--asym-threads","--recolor-threads",NULL };
 	    static const char *two_arg[] = { "--hydro-range","--batch-hydro3d-average","--clip-geo",NULL };
@@ -3972,6 +4003,22 @@ int main (int argc, char *argv[])
 	    }
 	    fclose(jf);
 	    return(0);
+	  } else if (strcmp(argv[1], "--value-radius") == 0) {
+	    /* Colour by the nearest centreline sphere's own radius (see --bands). */
+	    hydro_mode = 1;
+	    hydro_bands_mode = 1;
+	  } else if (strcmp(argv[1], "--bands") == 0) {
+	    char *tok;
+	    n_band_edges = 0;
+	    for (tok = strtok(argv[2], ","); tok && n_band_edges <= SOS_MAXBANDS; tok = strtok(NULL, ","))
+	      band_edge[n_band_edges++] = atof(tok);
+	    argc--; argv++;
+	  } else if (strcmp(argv[1], "--band-names") == 0) {
+	    char *tok;
+	    n_bands = 0;
+	    for (tok = strtok(argv[2], ","); tok && n_bands < SOS_MAXBANDS; tok = strtok(NULL, ","))
+	      band_name[n_bands++] = tok;
+	    argc--; argv++;
 	  } else if (strcmp(argv[1], "--hydro-values") == 0) {
 	    /* Pre-computed per-sphere normalized values (any scale, any lining mode):
 	       turns on hydro colouring AND selects the agnostic values path. */
@@ -4180,6 +4227,13 @@ int main (int argc, char *argv[])
       } else {
         hydro_mode = 0;
         fprintf(stderr, "\nhydro3d: no residues parsed - emitting uncoloured surface.");
+      }
+    } else if (hydro_bands_mode) {
+      if (n_cl > 0 && n_bands >= 1 && n_band_edges == n_bands + 1) {
+        fprintf(stderr, "\nhydro: coloured by radius in %d bands (%d centreline spheres).", n_bands, n_cl);
+      } else {
+        hydro_mode = 0; hydro_bands_mode = 0;
+        fprintf(stderr, "\nhydro: radius bands need --bands with one more edge than --band-names and a centreline - emitting uncoloured surface.");
       }
     } else if (n_sph > 0) {
       if (hydro_values_mode) {

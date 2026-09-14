@@ -50,6 +50,12 @@ clearance reaches or exceeds that limit, so the value is a lower bound.
 VMDPathFinder suggests a descriptive filename for each export. Confirm the destination
 before saving.
 
+## Time column
+
+When **Time/frame** is set in the Frames bar, the Trends and tunnel trends
+CSVs carry a `time_<unit>` column beside `frame`, and the Over Time CSVs note
+the time per frame in a header line. Frame numbers are kept in every file.
+
 ## Hydration export
 
 Hydration CSV export always writes the mean density/free-energy profile,

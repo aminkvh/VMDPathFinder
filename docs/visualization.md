@@ -36,8 +36,17 @@ and Seen filters.
 
 ## Color and properties
 
-A pore surface can retain HOLE's radius bands, use a flat VMD color, or use a
-supported physicochemical or hydration property. In Connolly mode, `pore_lat`
+A pore surface can retain HOLE's radius bands, use the watermelon radius
+bands, use a flat VMD color, or use a supported physicochemical or hydration
+property. `watermelon` colors every triangle by the radius of the centreline
+sphere whose surface is nearest it, in the same ten absolute bands the Over
+Time heat map uses (black below 1.25 Å through white above 14 Å), so a color
+means the same radius on the per-frame surface, the Mean Profile surface, a
+tunnel and its mean tube, and in every plot. VMD's named palette has no
+matching greens, so the plugin loads the band colors into the top ten slots
+of VMD's color scale (indices 1047 to 1056) before each watermelon draw and
+gives them back when the plugin closes; a representation colored by a scalar
+at the very top of the color scale shows those colors meanwhile. In Connolly mode, `pore_lat`
 distinguishes the central pore from lateral extensions. Select `pore_lobes` to
 open the inline region table, where each tracked opening can be shown, colored,
 annotated, and exported independently. See

@@ -127,8 +127,9 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 |---|---:|---|
 | Pore representation | Isosurface | None, Centerline, Dots, Wireframe, or Isosurface |
 | Tunnel representation | Isosurface | Isosurface, Wireframe, or Centerline; global or per route |
-| Pore surface color | `hole_def` | HOLE radius banding, property, `pore_lat` pore/spill classification, `pore_lobes` individual Connolly openings, or a flat VMD color |
-| Tunnel surface color | automatic rank | Route/rank color, selected property, or a flat VMD color |
+| Pore surface color | `hole_def` | HOLE radius banding, `watermelon` ten-band radius coloring, property, `pore_lat` pore/spill classification, `pore_lobes` individual Connolly openings, or a flat VMD color |
+| Tunnel surface color | automatic rank | Route/rank color, `Watermelon` radius bands, selected property, or a flat VMD color |
+| Time/frame (beside the frame list toggle) | empty | Simulation time between saved frames, with a unit menu (fs, ps, ns, µs, ms). Set, every per-frame axis (Over Time, Trends, per-frame hydration, Ion & Water) shows frame × time in that unit and frame-indexed CSVs gain a `time_<unit>` column; empty or 0 shows frame numbers; the field admits digits and a point only. Also the frame interval of the permeation rate when the permeation dialog's own field is blank |
 | Material | Opaque | VMD material applied to the generated representation |
 | Playback triangles (Settings, `sos_triangle` mesher only) | 4 | Draw every Nth triangle while the trajectory plays; the marching-cubes mesher always draws full detail |
 | Synchronize playback | on | Update VMDPathFinder geometry with the VMD frame |

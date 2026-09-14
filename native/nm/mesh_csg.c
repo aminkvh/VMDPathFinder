@@ -79,8 +79,31 @@ static int axis_ok(double x, double y, double z) {
     double dx = wx - t*ax_v[0], dy = wy - t*ax_v[1], dz = wz - t*ax_v[2];
     return sqrt(dx*dx + dy*dy + dz*dz) <= ax_endrad;
 }
+/* --bands E0,E1,...,En --band-names N0,...,N(n-1): colour the mesh by the
+   owning sphere's radius in n absolute bands, edges inclusive below, the
+   last band open above (the plugin's watermelon scale). Without it HOLE's
+   three groups (red < 1.15, green < 2.30, blue) are written. */
+#define MAXBANDS 32
+static double band_edge[MAXBANDS + 1]; static const char *band_name[MAXBANDS];
+static int nbands = 0, nband_edges = 0;
+static int band_of(float r) {
+    for (int b = 0; b < nbands; b++) if (r < band_edge[b + 1]) return b;
+    return nbands - 1;
+}
+static void bands_reset(void) { nbands = 0; nband_edges = 0; }
+static void bands_parse_edges(char *spec) {
+    nband_edges = 0;
+    for (char *tok = strtok(spec, ","); tok && nband_edges <= MAXBANDS; tok = strtok(NULL, ",")) band_edge[nband_edges++] = atof(tok);
+}
+static void bands_parse_names(char *spec) {
+    nbands = 0;
+    for (char *tok = strtok(spec, ","); tok && nbands < MAXBANDS; tok = strtok(NULL, ",")) band_name[nbands++] = tok;
+}
+static int bands_ok(void) { return nbands >= 1 && nband_edges == nbands + 1; }
 static void axis_parse(int argc, char **argv) {
     for (int a = 0; a < argc; a++) {
+        if (!strcmp(argv[a], "--bands") && a + 1 < argc) bands_parse_edges(argv[a+1]);
+        if (!strcmp(argv[a], "--band-names") && a + 1 < argc) bands_parse_names(argv[a+1]);
         if (!strcmp(argv[a], "--with")) {
             for (int b = a + 1; b < argc && strncmp(argv[b], "--", 2); b++)
                 if (nwith < MAXWITH) with_path[nwith++] = argv[b];
@@ -554,12 +577,22 @@ static long mesh_run(const char *outpath, const char *plotpath) {
                     tbuf[th] = realloc(tbuf[th], tcap[th] * sizeof(Tri));
                 }
                 Tri *tr = &tbuf[th][tcnt[th]++];
-                {   /* colour band = radius of the dot sphere owning the centroid's corner */
+                {   /* colour band = radius of the dot sphere whose surface is
+                       nearest the centroid, chosen among the owners of the
+                       cell's eight corners (the owner at a corner is the
+                       sphere with the least distance there, so the centroid's
+                       owner is one of them) */
                     int oi = locate(tx, gnx, gx2), oj = locate(ty, gny, gy2), ok = locate(tz, gnz, gz2);
-                    if (gx2 - tx[oi] > tx[oi+1] - gx2) oi++;
-                    if (gy2 - ty[oj] > ty[oj+1] - gy2) oj++;
-                    if (gz2 - tz[ok] > tz[ok+1] - gz2) ok++;
-                    int own = fown[IDX(oi,oj,ok)];
+                    int own = -1; double bestd = 1e30;
+                    for (int ci = oi - 1; ci <= oi + 2; ci++)
+                    for (int cj = oj - 1; cj <= oj + 2; cj++)
+                    for (int ck = ok - 1; ck <= ok + 2; ck++) {
+                        if (ci < 0 || cj < 0 || ck < 0 || ci > gnx - 1 || cj > gny - 1 || ck > gnz - 1) continue;
+                        int cand = fown[IDX(ci,cj,ck)];
+                        if (cand < 0 || isclip[cand]) continue;
+                        double d = prim_sdf(cand, gx2, gy2, gz2);
+                        if (d < bestd) { bestd = d; own = cand; }
+                    }
                     tr->band = own >= 0 ? (float)seff[own] : 0.0f;
                 }
                 /* b,cc swapped: winding must agree with the outward normal
@@ -633,22 +666,24 @@ static long mesh_run(const char *outpath, const char *plotpath) {
            every surface came out in VMD's default material. The plugin clears
            the molecule itself before it draws. */
         if (draw_form) fprintf(plot, "%sdelete all\n", G);
-        const char *names[3] = {"red", "green", "blue"};
-        for (int band = 0; band < 3; band++) {
+        static const char *hole_names[3] = {"red", "green", "blue"};
+        int use_bands = bands_ok();
+        int ngroups = use_bands ? nbands : 3;
+        for (int band = 0; band < ngroups; band++) {
             int any = 0;
             for (int th = 0; th < nslab && !any; th++)
                 for (int t = 0; t < tcnt[th]; t++) {
                     float r = tbuf[th][t].band;
-                    int b = r < 1.15f ? 0 : (r < 2.30f ? 1 : 2);
+                    int b = use_bands ? band_of(r) : (r < 1.15f ? 0 : (r < 2.30f ? 1 : 2));
                     if (b == band) { any = 1; break; }
                 }
             if (!any) continue;
-            fprintf(plot, "%scolor %s\n", G, names[band]);
+            fprintf(plot, "%scolor %s\n", G, use_bands ? band_name[band] : hole_names[band]);
             for (int th = 0; th < nslab; th++)
                 for (int t = 0; t < tcnt[th]; t++) {
                     Tri *tr = &tbuf[th][t];
                     float r = tr->band;
-                    int b = r < 1.15f ? 0 : (r < 2.30f ? 1 : 2);
+                    int b = use_bands ? band_of(r) : (r < 1.15f ? 0 : (r < 2.30f ? 1 : 2));
                     if (b != band) continue;
                     if (dots_form) {
                         /* a vertex is shared by ~6 triangles: emit it from the
@@ -923,6 +958,7 @@ static void usage(const char *a0) {
         "  --dots: the dots display - one \"draw point\" per distinct vertex (serve: meshdots)\n"
         "  --axis CX CY CZ VX VY VZ ENDRAD: keep only capsule slices within ENDRAD of the axis\n"
         "  --with SPH...: smoothing window - the mean of these frames' fields and the centre's is marched\n"
+        "  --bands E0,..,En --band-names N0,..,N(n-1): colour by the owning sphere's radius in n bands\n"
         "       %s --recolor IN.vmd_plot OUT.vmd_plot COLOUR-OPTIONS\n"
         "  (serve: recolor<TAB>IN<TAB>OUT<TAB>COLOUR-OPTIONS)  colour a draw-form mesh by property:\n"
         "  --atoms FILE|--values FILE --csph SPH [--lining residue|atom] [--facing 0|1]\n"
@@ -976,10 +1012,10 @@ int main(int argc, char **argv)
                 continue;
             }
 #endif
-            ax_have = 0; ax_endrad = 0; nwith = 0;
+            ax_have = 0; ax_endrad = 0; nwith = 0; bands_reset();
             char *mopt = strcmp(f0, "recolor") ? strchr(vs, '\t') : NULL;   /* VOXEL<TAB>--axis ... */
-            if (mopt) { *mopt++ = 0; char *av[16]; int ac = 0;
-                for (char *tok = strtok(mopt, "\t"); tok && ac < 16; tok = strtok(NULL, "\t")) av[ac++] = tok;
+            if (mopt) { *mopt++ = 0; char *av[48]; int ac = 0;
+                for (char *tok = strtok(mopt, "\t"); tok && ac < 48; tok = strtok(NULL, "\t")) av[ac++] = tok;
                 axis_parse(ac, av); }
             if (!strcmp(f0, "extent")) {
                 /* extent<TAB>SPH: centreline bounding box + largest radius, the
@@ -1031,6 +1067,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[a], "--dots")) { draw_form = 1; dots_form = 1; }
         else if (!strcmp(argv[a], "--axis") && a + 7 < argc) { axis_parse(8, argv + a); a += 7; }
         else if (!strcmp(argv[a], "--with")) { int b = a; while (b + 1 < argc && strncmp(argv[b+1], "--", 2)) b++; axis_parse(b - a + 1, argv + a); a = b; }
+        else if ((!strcmp(argv[a], "--bands") || !strcmp(argv[a], "--band-names")) && a + 1 < argc) { axis_parse(2, argv + a); a++; }
         else { usage(argv[0]); return 2; }
     }
     return serve_one(argv[1], argv[2], argv[3], tri) >= 0 ? 0 : 1;
