@@ -45117,6 +45117,27 @@ proc ::VMDPathFinder::_asym_assemble {raw centers radii u N} {
     return [list $out $kept]
 }
 
+proc ::VMDPathFinder::_asym_rows_hole_coords {frame entry} {
+    # Ellipse rows carry (c - centroid).u_pca; every tab labels the axis with
+    # HOLE's coord c.u. Returns that coord for each kept row (centers are aligned
+    # with the rows), or the rows' own coords when the entry is not aligned.
+    variable results
+    lassign $entry centers radii u asym
+    if {[llength $centers] != [llength $asym]} {
+        set out {}
+        foreach row $asym { lappend out [lindex $row 0] }
+        return $out
+    }
+    set rd [expr {[dict exists $results $frame run_dir] ? [dict get $results $frame run_dir] : ""}]
+    lassign [_hole_coord_dir $rd $centers] ux uy uz
+    set out {}
+    foreach c $centers {
+        lassign $c cx cy cz
+        lappend out [expr {$cx*$ux + $cy*$uy + $cz*$uz}]
+    }
+    return $out
+}
+
 # ---- PoreAnalyser-faithful ellipse solver (Seiferth & Biggin 2024). ----------------------
 # Tcl fallback for the compiled compute_ellipse; the two give identical results. PoreAnalyser
 # grows an ellipse per cross-section (minor pinned to the HOLE radius b, major a grown to
@@ -56029,11 +56050,11 @@ proc ::VMDPathFinder::collect_binned_radii {nbins {frame_list {}} {spec_key ""}}
         if {![dict exists $results $frame]} continue
         if {$_rsrc eq "ellipse"} {
             if {![dict exists $_ebatch $frame]} continue
-            lassign [dict get $_ebatch $frame] _ec _er _eu _easym
-            set xv {}; set yv {}
-            foreach _row $_easym {
+            set _eent [dict get $_ebatch $frame]
+            set xv [_asym_rows_hole_coords $frame $_eent]
+            set yv {}
+            foreach _row [lindex $_eent 3] {
                 lassign $_row _co _rh _rmin _rmax
-                lappend xv $_co
                 lappend yv [expr {sqrt(max($_rmin,0.0)*max($_rmax,0.0))}]
             }
         } else {
@@ -59461,7 +59482,7 @@ proc ::VMDPathFinder::_mean_vol_holedef_plot_body {mean_dir tag base_plot nbins 
     # coordinate instead, through the same _hole_radius_band every other surface
     # uses.
     variable state
-    set _rst [expr {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse" ? "_e" : ""}]
+    set _rst [expr {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse" ? "_e2" : ""}]
     set out [file join $mean_dir "mean_vol_${tag}_[expr {$bands eq "watermelon" ? "wm" : "holedef"}]$_rst.vmd_plot"]
     if {[surface_has_geometry $out] && [file mtime $out] >= [file mtime $base_plot]} { return $out }
     set pr [_mean_vol_profile_radii $nbins]
@@ -59707,7 +59728,7 @@ proc ::VMDPathFinder::build_and_show_mean_surface {{force 1} {ignore_cache 0}} {
     # of which changes on a code change). A different token is a cache miss, forcing a rebuild.
     set _gbase "g11"
     set _geomver $_gbase
-    if {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse"} { append _geomver "e" }
+    if {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse"} { append _geomver "e2" }
     # Which mesher will actually build this geometry (surface_mesh is called
     # below with union=1, so match that here) - without this, switching
     # Settings > Surface mesher never invalidated the cached file (neither
@@ -65516,12 +65537,13 @@ proc ::VMDPathFinder::_ellipse_radius_bundle {ncols nbins} {
     set all_yvals {}
     foreach frame $result_frames {
         if {![dict exists $batch $frame]} { continue }
-        lassign [dict get $batch $frame] centers radii u asym
+        set entry [dict get $batch $frame]
+        set asym [lindex $entry 3]
         if {[llength $asym] == 0} { continue }
-        set xv {}; set yv {}
+        set xv [_asym_rows_hole_coords $frame $entry]
+        set yv {}
         foreach row $asym {
             lassign $row coord rh rmin rmax
-            lappend xv $coord
             lappend yv [expr {sqrt(max($rmin,0.0)*max($rmax,0.0))}]
         }
         lappend valid_frames $frame
