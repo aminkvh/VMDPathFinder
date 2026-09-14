@@ -310,8 +310,10 @@ species radii and reports geometry-based conductance metrics. It does not model
 dehydration barriers, electrostatics, or binding.
 
 The bottleneck-residue dialog reports residues within a surface-distance shell
-of the minimum-radius sphere and exports the table. This shell is independent
-of the property-lining cutoff.
+of the minimum-radius sphere and exports the table. Each residue is listed with
+both its chain and its segname, in the dialog and as two CSV columns, so copies
+of a symmetric assembly stay apart whichever identifier the file carries. This
+shell is independent of the property-lining cutoff.
 
 ## 7. Save, import, and report
 

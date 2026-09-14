@@ -448,7 +448,6 @@ namespace eval ::VMDPathFinder:: {
         _esp_profile_cache        {form unset tags {keyed}}
         hydro_profile_cache       {form dict  tags {keyed}}
         _axis_straightness_cache  {form unset tags {keyed}}
-        _bneck_segname_cache      {form unset tags {keyed}}
         _mean_vol_fields_cache    {form unset tags {keyed}}
         _perm_axes_cache          {form unset tags {keyed}}
         _ionflow_water_menu_cache {form unset tags {keyed}}
@@ -63769,31 +63768,23 @@ proc ::VMDPathFinder::_ellipse_bottleneck_point {asym centers} {
     return [list $cx $cy $cz $bestr]
 }
 
-proc ::VMDPathFinder::_bottleneck_label_use_segname {molid seltext} {
-    # Some multi-copy assemblies give every protomer the SAME chain letter and
-    # distinguish copies only by segment name (e.g. a GABA-A pentamer selection
-    # where every chain reads "P" but segname is PROA/PROB/PROC/...) - chain
-    # alone can't tell those residues apart at all there. Decided ONCE per
-    # (molecule, selection), not per atom: use segname only when it would
-    # actually distinguish what chain cannot - every chain in the selection is
-    # identical, but segname varies. Cached indefinitely per molid+seltext (a
-    # structural property of the topology, not the run); _bottleneck_residue_
-    # series's own cache is keyed off _hole_run_sig, which already includes
-    # selection, so a selection change invalidates that cache too - no separate
-    # signature bookkeeping needed here.
-    variable _bneck_segname_cache
-    if {![info exists _bneck_segname_cache]} { set _bneck_segname_cache [dict create] }
-    set sig "$molid|$seltext"
-    if {[dict exists $_bneck_segname_cache $sig]} { return [dict get $_bneck_segname_cache $sig] }
-    set use 0
-    if {![catch {atomselect $molid "($seltext) and noh"} sel]} {
-        set chains [lsort -unique [$sel get chain]]
-        set segs   [lsort -unique [$sel get segname]]
-        if {[llength $chains] <= 1 && [llength $segs] > 1} { set use 1 }
-        catch {$sel delete}
+
+proc ::VMDPathFinder::_bneck_id_label {chain segname} {
+    set c [string trim $chain]; set g [string trim $segname]
+    if {$c eq ""} { set c "-" }
+    if {$g eq ""} { set g "-" }
+    return "$c:$g"
+}
+
+proc ::VMDPathFinder::_bneck_split_label {lbl} {
+    # {chain segname residue} from a label; a label saved before segname was
+    # carried has one identifier, reported as the chain.
+    lassign [split $lbl " "] id res
+    if {[string first ":" $id] >= 0} {
+        lassign [split $id ":"] c g
+        return [list $c $g $res]
     }
-    dict set _bneck_segname_cache $sig $use
-    return $use
+    return [list $id "-" $res]
 }
 
 proc ::VMDPathFinder::_bottleneck_residue_labels {molid frame center radius} {
@@ -63826,7 +63817,6 @@ proc ::VMDPathFinder::_bottleneck_residue_labels {molid frame center radius} {
     lassign $center cx cy cz
     set seltext [string trim $state(selection)]
     if {$seltext eq "" || $seltext eq "all"} { set seltext "protein" }
-    set use_seg [_bottleneck_label_use_segname $molid $seltext]
     # This is CAVER's `bottleneck_contact_distance`, default 3.0 A, and it is
     # implemented to their definition (CAVER 3.0 user guide):
     #   "The residue is considered as the bottleneck residue if the distance of
@@ -63867,8 +63857,9 @@ proc ::VMDPathFinder::_bottleneck_residue_labels {molid frame center radius} {
             set vdw [_pa_vdw $el $nm]
             if {$vdw <= 0} { set vdw 1.7 }
             if {[expr {abs($d - $radius) - $vdw}] > $tol} { continue }
-            set idlab [expr {$use_seg ? $segname : $chain}]
-            dict set out "$idlab $resname$resid" 1
+            # Label = "chain:segname RESNAMEresid": both identifiers, since a
+            # multi-copy system may carry the copy in either one.
+            dict set out "[_bneck_id_label $chain $segname] $resname$resid" 1
         }
     }
     catch {$sel delete}
@@ -65119,10 +65110,12 @@ narrowest point).\n"
     $txt insert end "\nFraction of frames each residue lines the constriction:\n"
     set rows {}
     dict for {lbl cnt} $freq { lappend rows [list $cnt $lbl] }
+    $txt insert end [format "  %-6s %-8s %-10s %s\n" chain segname residue "frames"]
     foreach r [lsort -integer -decreasing -index 0 $rows] {
         lassign $r cnt lbl
-        $txt insert end [format "  %-22s %s: %3d %%   (%d/%d frames)\n" \
-            $lbl $lbl [expr {round(100.0*$cnt/double($n_valid))}] $cnt $n_valid]
+        lassign [_bneck_split_label $lbl] _c _g _res
+        $txt insert end [format "  %-6s %-8s %-10s %3d %%   (%d/%d frames)\n" \
+            $_c $_g $_res [expr {round(100.0*$cnt/double($n_valid))}] $cnt $n_valid]
     }
     $txt insert end "\nPer frame:\n"
     foreach f [lsort -integer [dict keys $label_by_frame]] {
@@ -65147,12 +65140,12 @@ proc ::VMDPathFinder::export_bottleneck_residues_csv {} {
     # Which shell produced these residues - the number is the whole definition of
     # "lining", and the file was silent about it.
     puts $fh "# VMDPathFinder bottleneck residues. metric=$metric lining_shell_A=[_num_or bottleneck_shell 3.0 1]"
-    puts $fh "frame,metric,copy,residue,frames_lining,total_frames,percent_of_frames"
+    puts $fh "frame,metric,chain,segname,residue,frames_lining,total_frames,percent_of_frames"
     foreach f [lsort -integer [dict keys $label_by_frame]] {
         foreach lbl [dict get $label_by_frame $f] {
-            lassign [split $lbl " "] copy res
+            lassign [_bneck_split_label $lbl] _c _g res
             set cnt [expr {[dict exists $freq $lbl] ? [dict get $freq $lbl] : 0}]
-            puts $fh [join [list $f $metric $copy $res $cnt $n_valid \
+            puts $fh [join [list $f $metric $_c $_g $res $cnt $n_valid \
                 [format %.1f [expr {100.0*$cnt/double($n_valid)}]]] ,]
         }
     }
