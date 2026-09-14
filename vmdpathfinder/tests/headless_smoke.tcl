@@ -1364,6 +1364,47 @@ set ::VMDPathFinder::state(heatmap_radius_source) ellipse
 chk "...and the radius source is still named alongside it" \
     [expr {[::VMDPathFinder::export_fig_stem heatmap] ne $_hs(watermelon)}] 1
 set ::VMDPathFinder::state(heatmap_radius_source) hole
+# Mean Profile and Histogram share the Radius source: an ellipse export must not
+# overwrite a spherical one, and tunnel mode (no ellipse) keeps the plain name.
+set ::VMDPathFinder::state(mean_profile_fill) 0
+set ::VMDPathFinder::state(mean_radius_source) spherical
+set _ms0 [::VMDPathFinder::export_fig_stem mean]; set _hs0 [::VMDPathFinder::export_fig_stem hist]
+set ::VMDPathFinder::state(mean_radius_source) ellipse
+chk "the Mean Profile file names the ellipse radius source" \
+    [string match {*_ellipse} [::VMDPathFinder::export_fig_stem mean]] 1
+chk "...so does the Histogram" [string match {*_ellipse} [::VMDPathFinder::export_fig_stem hist]] 1
+set ::_test_mode tunnel
+chk "...and tunnel mode, which has no ellipse, does not" \
+    [expr {[::VMDPathFinder::export_fig_stem mean] eq "$_ms0" || ![string match {*_ellipse} [::VMDPathFinder::export_fig_stem mean]]}] 1
+set ::_test_mode hole
+set ::VMDPathFinder::state(mean_radius_source) spherical
+chk "the spherical name is unchanged" [expr {[::VMDPathFinder::export_fig_stem mean] eq $_ms0 && [::VMDPathFinder::export_fig_stem hist] eq $_hs0}] 1
+# Every export behind a per-frame plot carries the time axis the plot shows.
+set _sv_ft [expr {[info exists ::VMDPathFinder::state(frame_time)] ? $::VMDPathFinder::state(frame_time) : ""}]
+set ::VMDPathFinder::state(frame_time) ""
+chk "no time per frame: no time note" [expr {[::VMDPathFinder::_csv_time_note] eq ""}] 1
+set ::VMDPathFinder::state(frame_time) 2; set ::VMDPathFinder::state(frame_time_unit) ps
+chk "time per frame set: the frame-column note names it" \
+    [string match {*time = frame x 2 ps*} [::VMDPathFinder::_csv_time_note]] 1
+set ::VMDPathFinder::state(frame_time) $_sv_ft
+foreach _pp {export_tunnel_heatmap_csv export_heatmap_csv _export_heatmap_property_csv _export_hydration_perframe_csv} {
+    chk "$_pp writes the time note" [string match {*_csv_time_note*} [info body ::VMDPathFinder::$_pp]] 1
+}
+foreach _pp {export_metrics_csv export_tunnel_trends_csv _export_ion_count_csv _export_ion_passage_csv \
+        export_bottleneck_residues_csv export_passability_species_csv _cavity_plot_export_csv _cavity_export_csv} {
+    chk "$_pp has a time column beside frame" [string match {*_csv_time_header*} [info body ::VMDPathFinder::$_pp]] 1
+}
+chk "the tunnel profile CSV states the frame's time" \
+    [string match {*time=*} [info body ::VMDPathFinder::export_tunnel_profile_csv]] 1
+chk "the pore profile CSV states the frame's time" \
+    [string match {*time=*} [info body ::VMDPathFinder::export_profile_csv]] 1
+chk "the Mean Profile CSV carries the drawn fill and the radius source" \
+    [expr {[string match {*fill_*} [info body ::VMDPathFinder::export_mean_profile_csv]] \
+        && [string match {*radius_source=*} [info body ::VMDPathFinder::export_mean_profile_csv]]}] 1
+chk "the Histogram CSV states the radius source" \
+    [string match {*radius_source=*} [info body ::VMDPathFinder::export_histogram_csv]] 1
+chk "the per-frame hydration views export their matrix" \
+    [string match {*_export_hydration_perframe_csv*} [info body ::VMDPathFinder::export_hydration_csv]] 1
 # The Pore Profile tab draws three different figures; only one of them is a
 # profile. The unrolled wall map exported as "pore_profile", and each of its
 # 12 layers overwrote the last.

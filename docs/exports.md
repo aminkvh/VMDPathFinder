@@ -14,10 +14,10 @@ message and resulting extension.
 |---|---|
 | Pore Profile | channel coordinate, radius, and selected fill property where applicable |
 | Over Time | frame-by-position radius or property matrix |
-| Mean Profile | coordinate, mean radius, standard deviation, and contributing-frame count |
+| Mean Profile | coordinate, mean radius, standard deviation, contributing-frame count, and the drawn fill property; the header names the radius source |
 | Trends | frame and selected metric |
-| Histogram (radius summary) | axial-bin coordinate and uncapped mean/minimum/maximum radius aggregate |
-| Hydration | coordinate, relative density, free energy, waters per frame, and available standard deviations |
+| Histogram (radius summary) | axial-bin coordinate and uncapped mean/minimum/maximum radius aggregate; the header names the radius source |
+| Hydration | coordinate, relative density, free energy, waters per frame, and available standard deviations; the per-frame views export their coordinate × frame matrix instead |
 | Ion & Water | plotted occupancy or passage data and species metadata |
 
 Additional exports include summary metrics, bottleneck residues, unrolled
@@ -52,23 +52,25 @@ before saving.
 
 ## Time column
 
-With a positive **Time/frame**, pore and tunnel Trends, cavity volume-series,
-and Ion & Water Count and Passage CSVs add `time_<unit>` beside `frame`.
-Time is the loaded frame index multiplied by the saved-frame interval;
-microseconds use `time_us`.
+With a positive **Time/frame**, every CSV with a `frame` column (pore and
+tunnel Trends, cavity tables, bottleneck residues, tunnel passability, and
+Ion & Water Count and Passage) adds `time_<unit>` beside it. Time is the
+loaded frame index multiplied by the saved-frame interval; microseconds use
+`time_us`.
 
-Pore Over Time CSVs keep frame-number columns and record the interval in a
-comment header. Tunnel Over Time CSVs keep frame-number columns but do not
-record the interval; save it separately. Other exports do not automatically
-gain a time column.
+CSVs whose columns are frame numbers (pore and tunnel Over Time, the
+hydration per-frame map) record the interval in a comment header. The
+single-frame Pore Profile and tunnel profile CSVs state the frame's time in
+their header.
 
 ## Hydration export
 
-Hydration CSV export always writes the mean density/free-energy profile,
-independent of the currently displayed hydration view. Per-frame matrix and
-hydrophobicity plot names must not be interpreted as extra columns in that
-profile file. Its `channel_coord` column is HOLE's `coord`, the same frame as
-the Pore Profile CSV's `z_coordinate`.
+In the Density, Free energy, and Hydrophobicity views the Hydration export
+writes the mean density/free-energy profile. In the two per-frame views it
+writes the plotted matrix: one row per channel coordinate, one column per
+frame, cells `rho/rho_bulk` or `-kT ln(rho/rho_bulk)`. `channel_coord` is
+HOLE's `coord` in both files, the same frame as the Pore Profile CSV's
+`z_coordinate`.
 
 ## Tunnel lining
 

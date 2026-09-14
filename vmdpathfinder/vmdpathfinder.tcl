@@ -342,6 +342,8 @@ namespace eval ::VMDPathFinder:: {
     # circular one - kept as its own dict since it comes from a completely different
     # computation (the ellipse-probe fit vs HOLE's own profile), not just a key variant.
     variable hm_ellipse_bundle_cache [dict create]
+    # The Mean Profile fill as last drawn {scheme label values ver key nbins}; the CSV export reads it.
+    variable _mean_fill_drawn [dict create]
     # Memo for the heatmap's finished photo render (color mapping + photo fill),
     # keyed by data version + pixel geometry + scheme + flip. A plain tab switch
     # reuses the photo; a resize / new data / scheme change repaints it.
@@ -420,6 +422,7 @@ namespace eval ::VMDPathFinder:: {
         hm_prop_cache             {form dict  tags {run results}}
         hm_bundle_cache           {form dict  tags {run}}
         hm_ellipse_bundle_cache   {form dict  tags {run}}
+        _mean_fill_drawn          {form dict  tags {run results}}
         hm_render_cache           {form list  tags {run results}}
         sphere_hydro_values_cache {form dict  tags {run}}
         fastpath_sphere_cache     {form dict  tags {run}}
@@ -20505,14 +20508,14 @@ proc ::VMDPathFinder::_cavity_export_csv {} {
     lappend written [file tail ${root}.csv]
     # 2. per pocket per frame
     set fh [open "${root}_per_frame.csv" w]
-    puts $fh "tracked_id,frame,mole_rank_in_frame,volume_A3,depth,n_boundary,n_inner"
+    puts $fh "tracked_id,frame[_csv_time_header],mole_rank_in_frame,volume_A3,depth,n_boundary,n_inner"
     foreach tr $tracks {
         set tid [dict get $tr tid]
         foreach fr [dict get $tr frames] {
             set rk [_cavity_rank_in_frame $tid $fr]
             if {$rk eq "" || ![dict exists $tunnel_lining($fr) cav.$rk]} { continue }
             set cv [dict get $tunnel_lining($fr) cav.$rk]
-            puts $fh [format "%s,%s,%s,%.3f,%s,%d,%d" $tid $fr $rk [dict get $cv volume] \
+            puts $fh [format "%s,%s%s,%s,%.3f,%s,%d,%d" $tid $fr [_csv_time_cell $fr] $rk [dict get $cv volume] \
                 [dict get $cv depth] [dict get $cv nboundary] [dict get $cv ninner]]
         }
     }
@@ -21354,6 +21357,12 @@ proc ::VMDPathFinder::_csv_time_header {} {
     # ",time_<unit>" for a frame-indexed CSV when a time per frame is set, else "".
     if {[_frame_time_dt] <= 0} { return "" }
     return ",time_[_frame_time_unit]"
+}
+
+proc ::VMDPathFinder::_csv_time_note {} {
+    # Header line for a CSV whose columns are frame numbers, when a time per frame is set.
+    if {[_frame_time_dt] <= 0} { return "" }
+    return "# columns are frame numbers; time = frame x [_frame_time_dt] [_frame_time_unit]"
 }
 
 proc ::VMDPathFinder::_csv_time_cell {frame} {
@@ -31184,6 +31193,13 @@ proc ::VMDPathFinder::_sync_mean_fill_row_state {d} {
 proc ::VMDPathFinder::on_mean_fill_scheme_changed {args} {
     _sync_mean_fill_scheme_disp
     catch {draw_mean_profile}
+}
+
+proc ::VMDPathFinder::_mean_radius_source {} {
+    # spherical, or ellipse (area-equivalent radius) when picked in pore mode.
+    variable state
+    if {[analysis_mode] eq "tunnel"} { return "spherical" }
+    return [expr {[info exists state(mean_radius_source)] && $state(mean_radius_source) eq "ellipse" ? "ellipse" : "spherical"}]
 }
 
 proc ::VMDPathFinder::on_mean_radius_source_changed {args} {
@@ -50440,7 +50456,7 @@ proc ::VMDPathFinder::export_passability_species_csv {} {
     if {$fn eq ""} { return }
     set pass [dict get $m passability]
     set fh [open $fn w]
-    puts $fh "tunnel,frame,species,r_bare_A,r_hyd_A,pass_bare,pass_hyd,verdict,narrowest_blocking_radius_A,narrowest_blocking_z"
+    puts $fh "tunnel,frame[_csv_time_header],species,r_bare_A,r_hyd_A,pass_bare,pass_hyd,verdict,narrowest_blocking_radius_A,narrowest_blocking_z"
     foreach sp $SPECIES_ORDER {
         set e [dict get $pass $sp]
         if {[dict get $e pass_hyd]} { set verdict "PASS" } \
@@ -50452,8 +50468,8 @@ proc ::VMDPathFinder::export_passability_species_csv {} {
             set best 1e30
             foreach b $blk { lassign $b z0 z1 rmn zmn; if {$rmn < $best} { set best $rmn; set worst $best; set wz $zmn } }
         }
-        puts $fh [join [list $_id $frame $sp [format %.3f [dict get $e rb]] [format %.3f [dict get $e rh]] \
-            [dict get $e pass_bare] [dict get $e pass_hyd] $verdict $worst $wz] ,]
+        puts $fh "$_id,$frame[_csv_time_cell $frame],[join [list $sp [format %.3f [dict get $e rb]] [format %.3f [dict get $e rh]] \
+            [dict get $e pass_bare] [dict get $e pass_hyd] $verdict $worst $wz] ,]"
     }
     close $fh
     set state(status) "Tunnel passability CSV exported to $fn"
@@ -54984,6 +55000,7 @@ proc ::VMDPathFinder::_export_fig_stem {tab} {
                 }
                 if {$_sch ni {"" none}} { append base "_[_export_slug $_sch]" }
             }
+            if {[_mean_radius_source] eq "ellipse"} { append base "_ellipse" }
             return $base
         }
         heatmap {
@@ -55021,8 +55038,10 @@ proc ::VMDPathFinder::_export_fig_stem {tab} {
             # The histogram plots one of three aggregators over the same bins,
             # and named all three "radius_histogram".
             set _ag [expr {[info exists state(hist_aggregator)] ? $state(hist_aggregator) : ""}]
-            return [expr {$_ag eq "" ? "radius_histogram" \
+            set base [expr {$_ag eq "" ? "radius_histogram" \
                 : "radius_histogram_[_export_slug $_ag]"}]
+            if {[_mean_radius_source] eq "ellipse"} { append base "_ellipse" }
+            return $base
         }
         default { return "vmdpathfinder_figure" }
     }
@@ -55216,7 +55235,7 @@ proc ::VMDPathFinder::export_tunnel_profile_csv {} {
         -initialfile "[_export_fig_stem profile]_tunnel${id}_frame_${frame}[_export_run_tag].csv"]
     if {$path eq ""} { return }
     set fh [open $path w]
-    puts $fh "# VMDPathFinder tunnel profile. tunnel=$id frame=$frame"
+    puts $fh "# VMDPathFinder tunnel profile. tunnel=$id frame=$frame[expr {[_frame_time_dt] > 0 ? " time=[_frame_to_time $frame] [_frame_time_unit]" : ""}]"
     puts $fh [expr {[llength $propvals] ? "distance_along_path,radius,$prop" : "distance_along_path,radius"}]
     set n [llength $dists]
     for {set i 0} {$i < $n} {incr i} {
@@ -55290,6 +55309,7 @@ proc ::VMDPathFinder::export_profile_csv {} {
         -initialfile "[_export_fig_stem profile]_frame_${frame}[_export_run_tag].csv"]
     if {$path eq ""} { return }
     set fh [open $path w]
+    puts $fh "# VMDPathFinder pore profile. frame=$frame[expr {[_frame_time_dt] > 0 ? " time=[_frame_to_time $frame] [_frame_time_unit]" : ""}]"
     set xvals [dict get $profile xvalues]
     set yvals [dict get $profile yvalues]
     # The Fill's property, when it is on: the figure is colored by it, so the
@@ -55458,9 +55478,7 @@ proc ::VMDPathFinder::export_heatmap_csv {} {
     set z_step [expr {($global_max_z - $global_min_z) / double($nbins)}]
     set fh [open $path w]
     # Header: z_bin, frame1, frame2, ...
-    if {[_frame_time_dt] > 0} {
-        puts $fh "# columns are frame numbers; time = frame x [_frame_time_dt] [_frame_time_unit]"
-    }
+    if {[_csv_time_note] ne ""} { puts $fh [_csv_time_note] }
     set hdr "z_coordinate"
     foreach f $valid_frames { append hdr ",$f" }
     puts $fh $hdr
@@ -55565,6 +55583,7 @@ proc ::VMDPathFinder::export_tunnel_heatmap_csv {} {
     set global_min_z [dict get $bundle global_min_z]
     set z_step       [dict get $bundle z_step]
     set fh [open $path w]
+    if {[_csv_time_note] ne ""} { puts $fh [_csv_time_note] }
     # The axis header carries the quantity too, in the SAME cell rather than an
     # extra column: a bare matrix of numbers does not say whether it holds
     # radii or a property, and the file can be read far from its filename.
@@ -55626,9 +55645,7 @@ proc ::VMDPathFinder::_export_heatmap_property_csv {} {
     set global_min_z [dict get $bundle global_min_z]
     set z_step       [dict get $bundle z_step]
     set fh [open $path w]
-    if {[_frame_time_dt] > 0} {
-        puts $fh "# columns are frame numbers; time = frame x [_frame_time_dt] [_frame_time_unit]"
-    }
+    if {[_csv_time_note] ne ""} { puts $fh [_csv_time_note] }
     set hdr "z_coordinate"
     foreach f $valid_frames { append hdr ",$f" }
     puts $fh $hdr
@@ -57060,6 +57077,8 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
     variable w
     variable state
     variable tunnel_result_frames
+    variable plot_data_version
+    variable _mean_fill_drawn
     set tab $w.plotframe.nb.mean
     # Headless guard - see _have_tk.
     if {![_have_tk]} { return }
@@ -57296,6 +57315,8 @@ proc ::VMDPathFinder::_draw_mean_profile_body {} {
         }
         set _t_fill [expr {[clock milliseconds] - $_t_fill0}]
         catch {$cv delete $_calc_note}
+        set _mean_fill_drawn [dict create scheme $_msch label $_msch_lbl values $prop \
+            ver $plot_data_version key $mean_key nbins $nbins]
         # ESP's fixed property_meta scale (0-300) clips nearly every real value to
         # one end - the 3D surface colors it by the per-frame percentile spread
         # instead (_esp_adaptive_range); match that here so Fill and the 3D viewer
@@ -57611,6 +57632,8 @@ proc ::VMDPathFinder::draw_histogram_tab {args} {
 
 proc ::VMDPathFinder::export_mean_profile_csv {} {
     variable state
+    variable plot_data_version
+    variable _mean_fill_drawn
     # Mirrors draw_mean_profile's own branch: tunnel mode bins on signed
     # distance from the selected tunnel's bottleneck across its cross-frame
     # cluster (_tunnel_collect_binned_radii), not HOLE's per-frame results.
@@ -57653,11 +57676,22 @@ proc ::VMDPathFinder::export_mean_profile_csv {} {
     # plotted_in_gui says outright which the plot kept.
     set _covmin [expr {[dict exists $data cov_min_frames] ? [dict get $data cov_min_frames] : 0}]
     set _dbins [dict get $data bins]
+    # The fill drawn under the curve, when it is a property: the plot shows it,
+    # so the file carries it. Read from the last draw, never recomputed here.
+    set _fill {}; set _fcol ""
+    if {[info exists state(mean_profile_fill)] && $state(mean_profile_fill) \
+            && [dict size $_mean_fill_drawn] && [dict get $_mean_fill_drawn ver] == $plot_data_version \
+            && [dict get $_mean_fill_drawn key] eq $mean_key && [dict get $_mean_fill_drawn nbins] == $nbins \
+            && [dict get $_mean_fill_drawn scheme] ne "watermelon"} {
+        set _fill [dict get $_mean_fill_drawn values]
+        set _fcol ",fill_[_export_slug [dict get $_mean_fill_drawn scheme]]"
+    }
     set fh [open $fn w]
-    puts $fh "# VMDPathFinder mean profile. frames=[dict get $data nframes]$_range_note"
+    puts $fh "# VMDPathFinder mean profile. frames=[dict get $data nframes]$_range_note radius_source=[_mean_radius_source]"
     puts $fh "# mean/std are pooled over every radius sample in the bin (MDAnalysis bin_radii semantics)."
     puts $fh "# plotted_in_gui=0 marks a bin backed by fewer than [format %.4g $_covmin] frames - exported, but trimmed from the plot."
-    puts $fh "$_coord_col,mean_radius,std,min,max,count,n_frames,plotted_in_gui"
+    if {$_fcol ne ""} { puts $fh "# fill column: [dict get $_mean_fill_drawn label], the value drawn under the curve in each bin." }
+    puts $fh "$_coord_col,mean_radius,std,min,max,count,n_frames,plotted_in_gui$_fcol"
     for {set b 0} {$b < $nbins} {incr b} {
         set s [lindex $stats $b]
         if {$s eq {}} continue
@@ -57665,7 +57699,12 @@ proc ::VMDPathFinder::export_mean_profile_csv {} {
         set z [expr {$zmin + ($b + 0.5) * $zstep}]
         set _nfr [llength [lindex $_dbins $b]]
         set _shown [expr {($_covmin > 0 && $_nfr < $_covmin) ? 0 : 1}]
-        puts $fh "[format %.4f $z],[format %.4f $mean],[format %.4f $std],[format %.4f $mn],[format %.4f $mx],$cnt,$_nfr,$_shown"
+        set _fv ""
+        if {$_fcol ne ""} {
+            set _fx [lindex $_fill $b]
+            set _fv [expr {[string is double -strict $_fx] ? ",[format %.4f $_fx]" : ","}]
+        }
+        puts $fh "[format %.4f $z],[format %.4f $mean],[format %.4f $std],[format %.4f $mn],[format %.4f $mx],$cnt,$_nfr,$_shown$_fv"
     }
     close $fh
     set state(status) "Mean profile exported to $fn"
@@ -60312,6 +60351,7 @@ proc ::VMDPathFinder::export_histogram_csv {} {
     set _coord_col [expr {$_tunnel ? "distance_from_start" : "coord"}]
     set _covmin [expr {[dict exists $data cov_min_frames] ? [dict get $data cov_min_frames] : 0}]
     set fh [open $fn w]
+    puts $fh "# VMDPathFinder radius histogram. frames=[dict get $data nframes] radius_source=[_mean_radius_source]"
     puts $fh "# plotted_in_gui=0 marks a bin backed by fewer than [format %.4g $_covmin] frames - exported, but trimmed from the plot."
     puts $fh "$_coord_col,mean,min,max,count,frames,plotted_in_gui"
     for {set b 0} {$b < $nbins} {incr b} {
@@ -63034,21 +63074,65 @@ Tick to use the correct value; leave clear to match a real CHAP run exactly."
     _center_toplevel $d
 }
 
+proc ::VMDPathFinder::_export_hydration_perframe_csv {} {
+    # The Hydration tab's per-frame map: rows = channel coord, columns = frames;
+    # cell = rho/rho_bulk (density view) or -kT ln(rho/rho_bulk) (energy view),
+    # the same value the map colours.
+    variable state
+    variable hydration_data
+    set energy [expr {$state(hydration_view) eq "heatmap_g"}]
+    set frames [dict get $hydration_data perframe_frames]
+    set matrix [dict get $hydration_data perframe_occ]
+    set coords [_hydration_display_coords]
+    set fn [tk_getSaveFile -title "Export Hydration Per-Frame Map (CSV)" \
+        -initialdir [export_initial_dir] \
+        -initialfile "[_export_fig_stem hydration][_export_frame_range_tag $frames].csv" \
+        -defaultextension .csv -filetypes {{CSV {.csv}} {All *}}]
+    if {$fn eq ""} { return }
+    set kT [expr {[dict exists $hydration_data kT] ? [dict get $hydration_data kT] : 0.596}]
+    set fh [open $fn w]
+    puts $fh "# VMDPathFinder hydration per frame. selection=\"[dict get $hydration_data wsel]\" bulk=[dict get $hydration_data bulk] frames=[llength $frames] dz=[dict get $hydration_data dz]"
+    puts $fh [expr {$energy ? "# cell = -kT ln(rho/rho_bulk) in kcal/mol, kT=$kT; rho/rho_bulk below 1e-6 is floored there." \
+                             : "# cell = rho/rho_bulk (dimensionless)."}]
+    puts $fh "# channel_coord: HOLE's coord, the projection onto the axis (same frame as the Pore Profile CSV)"
+    if {[_csv_time_note] ne ""} { puts $fh [_csv_time_note] }
+    puts $fh "channel_coord,[join $frames ,]"
+    set nz [llength $coords]
+    for {set zi 0} {$zi < $nz} {incr zi} {
+        set row [format %.4f [lindex $coords $zi]]
+        foreach fr $matrix {
+            set oc [lindex $fr $zi]
+            if {![string is double -strict $oc]} { append row ","; continue }
+            if {$energy} {
+                if {$oc < 1e-6} { set oc 1e-6 }
+                append row ",[format %.4f [expr {-1.0 * $kT * log($oc)}]]"
+            } else {
+                append row ",[format %.4f $oc]"
+            }
+        }
+        puts $fh $row
+    }
+    close $fh
+    set state(status) "Hydration per-frame map exported to $fn"
+}
+
 proc ::VMDPathFinder::export_hydration_csv {} {
     variable state
     variable hydration_data
     if {$hydration_data eq "" || [llength [dict get $hydration_data coords]] < 1} {
         set state(status) "No hydration profile to export (click Compute first)."; return
     }
-    # Fixed name, not [_export_fig_stem hydration] - that stem is keyed to
-    # state(hydration_view) (density/free_energy/density_per_frame/energy_
-    # per_frame/hydrophobicity), but the table below is always the same
-    # density+energy+waters profile regardless of which plot is on screen -
-    # two of those five names ("..._per_frame", "..._hydrophobicity") also
-    # promised data (the per-frame matrix, a hydrophobicity column) this
-    # export never contains.
+    # Fixed name for the profile views: the table below is the same
+    # density+energy+waters profile whichever of them is on screen. The
+    # per-frame views export their own z x frame matrix instead.
     set _rng [expr {[dict exists $hydration_data perframe_frames] ? \
         [dict get $hydration_data perframe_frames] : {}}]
+    # The per-frame views plot a z x frame matrix, so they export that matrix.
+    if {[info exists state(hydration_view)] && $state(hydration_view) in {heatmap heatmap_g} \
+            && [hydration_perframe_available]} {
+        _export_hydration_perframe_csv
+        return
+    }
     set fn [tk_getSaveFile -title "Export Hydration Profile (CSV)" \
         -initialdir [export_initial_dir] \
         -initialfile "hydration_profile[_export_frame_range_tag $_rng].csv" \
@@ -65285,13 +65369,13 @@ proc ::VMDPathFinder::export_bottleneck_residues_csv {} {
     # Which shell produced these residues - the number is the whole definition of
     # "lining", and the file was silent about it.
     puts $fh "# VMDPathFinder bottleneck residues. metric=$metric lining_shell_A=[_num_or bottleneck_shell 3.0 1]"
-    puts $fh "frame,metric,chain,segname,residue,frames_lining,total_frames,percent_of_frames"
+    puts $fh "frame[_csv_time_header],metric,chain,segname,residue,frames_lining,total_frames,percent_of_frames"
     foreach f [lsort -integer [dict keys $label_by_frame]] {
         foreach lbl [dict get $label_by_frame $f] {
             lassign [_bneck_split_label $lbl] _c _g res
             set cnt [expr {[dict exists $freq $lbl] ? [dict get $freq $lbl] : 0}]
-            puts $fh [join [list $f $metric $_c $_g $res $cnt $n_valid \
-                [format %.1f [expr {100.0*$cnt/double($n_valid)}]]] ,]
+            puts $fh "$f[_csv_time_cell $f],[join [list $metric $_c $_g $res $cnt $n_valid \
+                [format %.1f [expr {100.0*$cnt/double($n_valid)}]]] ,]"
         }
     }
     close $fh
