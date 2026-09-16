@@ -4,10 +4,24 @@ VMDPathFinder's pore workflow can be driven from the VMD Tk Console or from a sc
 passed to `vmd -dispdev text -e`. Pin the VMDPathFinder version used by a script,
 because state names and result fields can change between releases.
 
+## Loading the plugin
+
+After `install.sh` the package is on VMD's search path once its directory is
+appended to `auto_path`; a checkout can be sourced directly instead. Either
+form loads without Tk, so it works under `-dispdev text`:
+
+```tcl
+lappend auto_path $env(HOME)/.vmd/plugins/vmdpathfinder
+package require vmdpathfinder 1.0
+# or: source /absolute/path/to/VMDPathFinder/vmdpathfinder/vmdpathfinder.tcl
+::VMDPathFinder::init_executables
+```
+
 ## Minimal pore script
 
 ```tcl
-source /absolute/path/to/VMDPathFinder/vmdpathfinder/vmdpathfinder.tcl
+lappend auto_path $env(HOME)/.vmd/plugins/vmdpathfinder
+package require vmdpathfinder 1.0
 ::VMDPathFinder::init_executables
 
 set molid [mol new /data/channel.pdb]
@@ -59,6 +73,64 @@ set ::VMDPathFinder::state(sos_triangle_exec) "/opt/vmdpathfinder/bin/sos_triang
 An empty path permits an embedded fallback where supported. This is useful for
 portability but can be much slower.
 
+## Channel axis without coordinates
+
+`cpoint` and `cvect` accept a literal `x y z`, an atom selection (its centre
+of geometry, re-evaluated per frame), or nothing:
+
+- A blank field is resolved once per run by HOLE's own CGUESS (the same rule
+  as leaving the GUI field empty).
+- `suggest_cvect 1` runs the GUI's **Guess** button: membrane normal, then
+  channel symmetry axis, then inertia long axis; it writes `state(cvect)` and
+  returns which method was used.
+
+The value a run actually used is in its parameter file (`run_*.txt`) and from
+`_run_axis_manifest cpoint` / `cvect`, marked `(guessed)` when it was not
+supplied.
+
+```tcl
+set ::VMDPathFinder::state(cpoint) ""
+set ::VMDPathFinder::state(cvect)  ""
+puts "axis from: [::VMDPathFinder::suggest_cvect 1]"
+::VMDPathFinder::run_analysis
+puts "used [::VMDPathFinder::_run_axis_manifest cpoint] / [::VMDPathFinder::_run_axis_manifest cvect]"
+```
+
+## Many structures in one job
+
+Load each structure, point `state(molid)` at it, run, read, delete. The state
+block is shared, so set every field you rely on inside the loop; a blank axis
+is re-guessed for each structure.
+
+```tcl
+set fh [open /data/results/summary.csv w]
+puts $fh "structure,cpoint,cvect,min_radius_A"
+foreach pdb [glob /data/structures/*.pdb] {
+    set molid [mol new $pdb waitfor all]
+    set ::VMDPathFinder::state(molid) $molid
+    set ::VMDPathFinder::state(selection) "protein"
+    set ::VMDPathFinder::state(frame_spec) "now"
+    set ::VMDPathFinder::state(cpoint) ""
+    set ::VMDPathFinder::state(cvect) ""
+    set ::VMDPathFinder::state(display_mode) "none"
+    set ::VMDPathFinder::state(work_dir) "/data/results/[file rootname [file tail $pdb]]"
+    set ::VMDPathFinder::state(save_results) 1
+    ::VMDPathFinder::suggest_cvect 1
+    if {[catch {::VMDPathFinder::run_analysis} ok] || !$ok} {
+        puts stderr "$pdb: $::VMDPathFinder::state(status)"
+        mol delete $molid
+        continue
+    }
+    set f [lindex $::VMDPathFinder::result_frames 0]
+    puts $fh "[file tail $pdb],[::VMDPathFinder::_run_axis_manifest cpoint],[::VMDPathFinder::_run_axis_manifest cvect],[dict get $::VMDPathFinder::results $f profile min_radius]"
+    mol delete $molid
+}
+close $fh
+```
+
+For trajectories, replace `mol new` with `mol new` + `mol addfile ... waitfor all`
+and set `frame_spec` to a range.
+
 ## Frame specification
 
 `state(frame_spec)` accepts the same syntax as the GUI: `now`, `all`, a frame
@@ -79,6 +151,15 @@ foreach frame $::VMDPathFinder::result_frames {
 ```
 
 Record the VMDPathFinder version with scripted output.
+
+## Using the results outside VMD
+
+There is no direct MDAnalysis bridge. With **Save results** on, each frame
+directory holds HOLE's sphere file (`hole_out.sph`, PDB-like `ATOM` records
+with the sphere radius in the last two columns) and the profile
+(`hole_profile.tsv`: `coord`, `radius`, …). Both are plain text; `pandas`
+reads the TSV and the CSV exports directly, and the `.sph` file is the same
+format MDAnalysis's `hole2` module writes for its own runs.
 
 ## Headless limitations
 
