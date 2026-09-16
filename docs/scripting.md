@@ -62,7 +62,10 @@ nonzero process status.
 
 ## Set native executable paths
 
-`init_executables` reads saved configuration. Paths can also be set explicitly:
+Scripted runs use the same engines as the GUI: `init_executables` reads the
+saved configuration (`~/.vmdpathfinder_config`, written by `install.sh`), and
+the native search, surface and property engines and the parallel frame pool
+all run without a display. Paths can also be set explicitly:
 
 ```tcl
 set ::VMDPathFinder::state(hole_exec) "/opt/vmdpathfinder/bin/hole"
