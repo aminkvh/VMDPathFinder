@@ -82,6 +82,11 @@ cp "$SRC/vmdpathfinder/pkgIndex.tcl" "$DEST/vmdpathfinder/"
 for f in NOTICE.md LICENSE-Apache-2.0.txt; do
     [ -f "$SRC/vmdpathfinder/$f" ] && cp "$SRC/vmdpathfinder/$f" "$DEST/vmdpathfinder/"
 done
+# radius files the plugin ships (Martini 2 and 3 beads; HOLE's simple.rad)
+if [ -d "$SRC/vmdpathfinder/rad" ]; then
+    mkdir -p "$DEST/vmdpathfinder/rad"
+    cp "$SRC/vmdpathfinder/rad/"*.rad "$DEST/vmdpathfinder/rad/"
+fi
 echo "Installed."
 
 # Point the plugin AT the binaries rather than telling the user to do it. The

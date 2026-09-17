@@ -1364,6 +1364,15 @@ set ::VMDPathFinder::state(heatmap_radius_source) ellipse
 chk "...and the radius source is still named alongside it" \
     [expr {[::VMDPathFinder::export_fig_stem heatmap] ne $_hs(watermelon)}] 1
 set ::VMDPathFinder::state(heatmap_radius_source) hole
+# Martini radius files ship with the plugin and the Preset menu lists them.
+set _presets [::VMDPathFinder::_radius_file_presets]
+chk "the Preset list names martini2 and martini3" \
+    [expr {[lsearch -index 0 $_presets martini2] >= 0 && [lsearch -index 0 $_presets martini3] >= 0}] 1
+chk "...and HOLE's simple.rad" [expr {[lsearch -index 0 $_presets simple] >= 0}] 1
+chk "a Martini water bead selection is recognised" [::VMDPathFinder::_water_is_beads "resname W WF"] 1
+chk "...and an atomistic one is not" [::VMDPathFinder::_water_is_beads "water and oxygen"] 0
+chk "the default IGNORE covers Martini water" \
+    [regexp {ignore \{HOH WAT TIP SOL W WF PW\}} [read [open vmdpathfinder.tcl]]] 1
 # Mean Profile and Histogram share the Radius source: an ellipse export must not
 # overwrite a spherical one, and tunnel mode (no ellipse) keeps the plain name.
 set ::VMDPathFinder::state(mean_profile_fill) 0

@@ -33,15 +33,20 @@ change a default.
 | `SAMPLE` | 0.25 Å | Distance between successive search planes |
 | `ENDRAD` | 15 Å | Radius at which HOLE considers an end open to bulk |
 | `SHORTO` | 1 | HOLE output verbosity; `1` suppresses detailed per-slice diagnostics while retaining the profile output |
-| `IGNORE` | `HOH WAT TIP SOL` | Residue names excluded from the HOLE calculation |
+| `IGNORE` | `HOH WAT TIP SOL W WF PW` | Residue names excluded from the HOLE calculation |
 | Random seed | blank (uses `1`) | Integer seed; blank uses `1` |
 
 ### Radius files
 
 The radius file assigns a van der Waals radius to every selected atom. Choose a
-HOLE-format `.rad` file in **File → Settings** and confirm that the console
-reports no missing atom types. Use a custom file for cofactors, ligands,
-modified residues, or nonstandard naming.
+HOLE-format `.rad` file in **File → Settings** (**Preset** lists the files
+shipped with the plugin and with HOLE) and confirm that the console reports no
+missing atom types. Use a custom file for cofactors, ligands, modified
+residues, or nonstandard naming.
+
+The plugin ships `simple.rad` (HOLE's own) and two coarse-grained files,
+`martini2.rad` and `martini3.rad`, in its `rad/` directory. See
+[Coarse-grained systems](pore-mode.md#coarse-grained-martini-systems).
 
 Atomic radii are separate from the bare, hydrated, and probe radii used by
 **Passability**. Their sources are listed in

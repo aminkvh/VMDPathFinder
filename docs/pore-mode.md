@@ -324,6 +324,33 @@ both its chain and its segname, in the dialog and as two CSV columns, so copies
 of a symmetric assembly stay apart whichever identifier the file carries. This
 shell is independent of the property-lining cutoff.
 
+## Coarse-grained (Martini) systems
+
+Martini beads have no atomistic names, so HOLE needs a bead radius file:
+choose `martini3.rad` or `martini2.rad` under **File → Settings → Radius
+file → Preset**. The files are generated from the force-field definitions
+(`tools/martini_rad.py`; radius = σ/2: 2.35 Å regular, 2.05 Å small,
+1.70 Å tiny for Martini 3; 2.35 Å and 2.15 Å ring beads for Martini 2) and
+cover proteins, water, ions, phospholipids and nucleobases. Any other bead
+is treated as a regular bead. HOLE reads at most 100 radius rules, which the
+files stay under.
+
+- **Selection:** VMD's `protein` keyword needs bonds; load a topology
+  (`.tpr`, `.psf`) or a PDB with bonds, or select beads by name,
+  `name BB SC1 SC2 SC3 SC4 SC5`.
+- **Water and ions:** with an empty water selection, `resname W WF` is used
+  when no atomistic water is present. Densities and free energies are ratios
+  and need no correction; counts are in beads (one W bead is four waters), the
+  literature bulk fallback becomes 0.0334/4 Å⁻³ per bead, and the hydration
+  CSVs say so. Martini ion names (`NA`, `CL`, `NA+`, `CL-`)
+  are recognised.
+- **Not applicable:** atom-level properties (Kapcha–Rossky), CHAP mode, and
+  hydrogen-bond based analyses. Residue-level properties work through the
+  residue names.
+- Check on KcsA (PDB 1BL8, martinize2): minimum radius 0.82 Å (Martini 3) and
+  0.87 Å (Martini 2) against 0.53 Å atomistic, the profile within ±0.5 Å
+  elsewhere along the pore.
+
 ## 7. Save, import, and report
 
 Use **File → Load Saved Analysis…** to restore a saved pore or tunnel run. Exported figures

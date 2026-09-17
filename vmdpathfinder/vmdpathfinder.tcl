@@ -579,7 +579,7 @@ namespace eval ::VMDPathFinder:: {
         align_ref_frame 0
         align_sel {protein and name CA}
         selection protein
-        ignore {HOH WAT TIP SOL}
+        ignore {HOH WAT TIP SOL W WF PW}
         sample 0.25
         endrad 15.0
         shorto 1
@@ -1392,6 +1392,11 @@ proc ::VMDPathFinder::init_executables {} {
                 set rp [file join $raddir $rname]
                 if {[file exists $rp]} { set state(radius_file) $rp; break }
             }
+        }
+        variable plugin_dir
+        if {($state(radius_file) eq "" || ![file exists $state(radius_file)]) && [info exists plugin_dir]} {
+            set rp [file join $plugin_dir rad simple.rad]
+            if {[file exists $rp]} { set state(radius_file) $rp }
         }
         # Not when a caller preset any engine path: the documented batch
         # recipe points at job-local binaries, and persisting them would
@@ -23579,10 +23584,54 @@ proc ::VMDPathFinder::browse_exe {key title} {
     if {$chosen ne ""} { set state($key) $chosen }
 }
 
+proc ::VMDPathFinder::_radius_file_presets {} {
+    # {label path} for every .rad file shipped with the plugin (rad/ beside
+    # this file: martini2, martini3) or with HOLE (the rad/ beside its exe).
+    variable state
+    variable plugin_dir
+    set dirs [list [file join $plugin_dir rad]]
+    foreach k {hole_exec sos_triangle_exec} {
+        if {[info exists state($k)] && $state($k) ne ""} {
+            lappend dirs [file join [file dirname [file dirname $state($k)]] rad]
+        }
+    }
+    if {[info exists state(radius_file)] && $state(radius_file) ne ""} {
+        lappend dirs [file dirname $state(radius_file)]
+    }
+    set out {}; set seen {}
+    foreach d $dirs {
+        foreach f [lsort [glob -nocomplain -directory $d *.rad]] {
+            set tail [file tail $f]
+            if {$tail in $seen} continue
+            lappend seen $tail
+            lappend out [list [file rootname $tail] $f]
+        }
+    }
+    return $out
+}
+
+proc ::VMDPathFinder::_radius_file_preset_menu {mb} {
+    # Rebuild the Preset menu from what is on disk right now.
+    variable state
+    set m $mb.m
+    if {![winfo exists $m]} { menu $m -tearoff 0 }
+    $m delete 0 end
+    foreach p [_radius_file_presets] {
+        lassign $p label path
+        $m add command -label $label -command [list set ::VMDPathFinder::state(radius_file) $path]
+    }
+    if {[$m index end] eq "none"} { $m add command -label "(no .rad files found)" -state disabled }
+}
+
 proc ::VMDPathFinder::browse_radius_file {} {
     variable state
+    variable plugin_dir
+    set start [_browse_start_dir $state(radius_file)]
+    if {$state(radius_file) eq "" && [file isdirectory [file join $plugin_dir rad]]} {
+        set start [file join $plugin_dir rad]
+    }
     set chosen [tk_getOpenFile -title "Select radius file" \
-        -initialdir [_browse_start_dir $state(radius_file)] \
+        -initialdir $start \
         -initialfile [file tail $state(radius_file)] \
         -filetypes {{"Radius files" {*.rad}} {"All files" *}}]
     if {$chosen ne ""} { set state(radius_file) $chosen }
@@ -23831,8 +23880,11 @@ proc ::VMDPathFinder::show_settings_dialog {} {
     label $d.rad_l -text "Radius file"
     entry $d.rad_e -textvariable ::VMDPathFinder::state(radius_file) -width 32
     frame $d.rad_btns
+    menubutton $d.rad_btns.preset -text "Preset" -relief raised -indicatoron 1 -menu $d.rad_btns.preset.m
+    menu $d.rad_btns.preset.m -tearoff 0 -postcommand [list ::VMDPathFinder::_radius_file_preset_menu $d.rad_btns.preset]
     button $d.rad_btns.browse -text "Browse" -command ::VMDPathFinder::browse_radius_file
     button $d.rad_btns.open   -text "Open"      -command ::VMDPathFinder::open_radius_file
+    pack $d.rad_btns.preset -side left -padx {0 4}
     pack $d.rad_btns.browse -side left -padx {0 4}
     pack $d.rad_btns.open   -side left
     grid $d.rad_l -row $row -column 0 -sticky w -padx 8 -pady 3
@@ -23840,6 +23892,7 @@ proc ::VMDPathFinder::show_settings_dialog {} {
     grid $d.rad_btns -row $row -column 2 -sticky w -padx 8 -pady 3
     incr row
     add_tooltip $d.rad_btns.open "Open the .rad file to add a missing VDWR entry."
+    add_tooltip $d.rad_btns.preset "Radius files shipped with the plugin and with HOLE: simple, amberuni, bondi, xplor, hardcore, martini2, martini3."
 
     frame $d.btns
     button $d.btns.save  -text "Save Settings" -command ::VMDPathFinder::save_config
@@ -23972,7 +24025,7 @@ proc ::VMDPathFinder::show_hole_params_settings {} {
         Required; pre-filled with HOLE's own default, 0.25."
     add_tooltip $d.hp.sh_e "How much HOLE prints to the console: 0 = everything. Use 0, 1 or 2 here; 3 omits the radius table the profile plot needs."
     add_tooltip $d.hp.ig_e "Residue names HOLE treats as empty space rather than wall. Pre-filled with\
-        this plugin's own default, HOH WAT TIP SOL; blank omits the card entirely."
+        this plugin's own default, HOH WAT TIP SOL W WF PW; blank omits the card entirely."
 
     # ============ Playback & session ============
     # Pore-only: none of these are read by tunnel mode (see show_settings_dialog).
@@ -43240,7 +43293,7 @@ proc ::VMDPathFinder::run_analysis {} {
             set done 0
             set _aborted_killed 0
             set hole_failures 0
-            set _empty_sel_frames {}
+            set _empty_sel_frames {}; set _nan_frames {}
             set last_ui_ms [clock milliseconds]
             vmdcon -info "VMDPathFinder: HOLE starting - $total frame(s)  parallel=$njobs  mol=$molid"
             # One-time setup: capture "now" frame + create scoped fit handles, when any
@@ -43293,6 +43346,16 @@ proc ::VMDPathFinder::run_analysis {} {
                             # frame 7412 of 10000 threw away 7411 good frames
                             # and returned an empty result_frames.
                             lappend _empty_sel_frames $frame
+                            incr hole_failures
+                            continue
+                        }
+                        # A nan coordinate (a model built from a structure with
+                        # missing atoms) sends HOLE's CPOINT guess into an
+                        # endless loop; skip the frame and say why.
+                        set _finite 1
+                        foreach _v [measure center $sel] { if {![_is_finite $_v]} { set _finite 0; break } }
+                        if {!$_finite} {
+                            lappend _nan_frames $frame
                             incr hole_failures
                             continue
                         }
@@ -43632,6 +43695,11 @@ proc ::VMDPathFinder::run_analysis {} {
             set state(status) "Aborted - parsing the completed profile(s)…"
         } else {
             vmdcon -info "VMDPathFinder: HOLE complete ($total frame(s), $hole_failures failed). Parsing profiles..."
+            if {[llength $_nan_frames] > 0} {
+                vmdcon -warn "VMDPathFinder: selection '$seltext' has atoms with undefined (nan)\
+                    coordinates in [llength $_nan_frames] frame(s); they were skipped:\
+                    [join [lrange $_nan_frames 0 9] {, }][expr {[llength $_nan_frames] > 10 ? ", ..." : ""}]"
+            }
             if {[llength $_empty_sel_frames] > 0} {
                 vmdcon -warn "VMDPathFinder: selection '$seltext' matched 0 atoms in\
                     [llength $_empty_sel_frames] frame(s); they were skipped:\
@@ -47603,14 +47671,36 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
         molid $molid frame_ref $frame_ref]
 }
 
+proc ::VMDPathFinder::_water_sel_effective {molid} {
+    # The water selection to scan: the Hydration field, else "water and oxygen".
+    # A coarse-grained system has no atom VMD's "water" macro knows, so when the
+    # default matches nothing and Martini water beads exist, those are used.
+    variable state
+    set wsel [expr {[info exists state(water_sel)] ? [string trim $state(water_sel)] : ""}]
+    if {$wsel ne ""} { return $wsel }
+    set wsel "water and oxygen"
+    if {$molid eq "" || $molid < 0} { return $wsel }
+    set n -1
+    catch { set _s [atomselect $molid $wsel]; set n [$_s num]; $_s delete }
+    if {$n != 0} { return $wsel }
+    set nw 0
+    catch { set _s [atomselect $molid "resname W WF"]; set nw [$_s num]; $_s delete }
+    if {$nw > 0} { return "resname W WF" }
+    return $wsel
+}
+
+proc ::VMDPathFinder::_water_is_beads {wsel} {
+    # True when the water selection names Martini water beads (W, WF, PW).
+    return [regexp {resname\s+(W|WF|PW)(\s|$)} $wsel]
+}
+
 proc ::VMDPathFinder::_ion_flow_water_sel {molid} {
     # The water selection Ion Flow scans: the Hydration tab's own (state(water_sel),
     # default "water and oxygen"), reduced to ONE atom per molecule by the same
     # canonicaliser Hydration uses - so TIP3/TIP4/SPC/OPC all count once per water
     # and a user who has already fixed the selection for their model gets it here.
     variable state
-    set wsel [expr {[info exists state(water_sel)] ? [string trim $state(water_sel)] : ""}]
-    if {$wsel eq ""} { set wsel "water and oxygen" }
+    set wsel [_water_sel_effective $molid]
     set c $wsel
     catch {set c [_canonical_water_sel $molid 0 $wsel]}
     return $c
@@ -61263,8 +61353,10 @@ proc ::VMDPathFinder::compute_hydration {} {
     variable results
     variable result_frames
     variable hydration_data
-    set wsel [string trim $state(water_sel)]
-    if {$wsel eq ""} { set wsel "water and oxygen" }
+    set wsel [_water_sel_effective [resolve_molid_or -1]]
+    if {[string trim $state(water_sel)] eq "" && [_water_is_beads $wsel]} {
+        vmdcon -info "VMDPathFinder: no atomistic water found; counting Martini water beads (\"$wsel\")."
+    }
     # Bulk density: MEASURED from this trajectory, not assumed. Falls back to the
     # literature value only when the system has too little bulk water to measure.
     # See measure_bulk_density for why a constant is the wrong default.
@@ -61285,6 +61377,8 @@ proc ::VMDPathFinder::compute_hydration {} {
     }
     if {![string is double -strict $bulk] || $bulk <= 0} {
         set bulk 0.0334; set _bulk_src "literature default - too little bulk water to measure"
+        # One Martini W bead stands for four waters.
+        if {[_water_is_beads $wsel]} { set bulk [expr {0.0334 / 4.0}]; append _bulk_src ", per W bead" }
     }
     set state(water_bulk) $bulk
     # Report the CANONICAL selection, not the user's: when no single-site variant
@@ -63092,6 +63186,9 @@ proc ::VMDPathFinder::_export_hydration_perframe_csv {} {
     set kT [expr {[dict exists $hydration_data kT] ? [dict get $hydration_data kT] : 0.596}]
     set fh [open $fn w]
     puts $fh "# VMDPathFinder hydration per frame. selection=\"[dict get $hydration_data wsel]\" bulk=[dict get $hydration_data bulk] frames=[llength $frames] dz=[dict get $hydration_data dz]"
+    if {[_water_is_beads [dict get $hydration_data wsel]]} {
+        puts $fh "# water is counted as Martini beads (one W bead = four water molecules); the cells are ratios and unaffected."
+    }
     puts $fh [expr {$energy ? "# cell = -kT ln(rho/rho_bulk) in kcal/mol, kT=$kT; rho/rho_bulk below 1e-6 is floored there." \
                              : "# cell = rho/rho_bulk (dimensionless)."}]
     puts $fh "# channel_coord: HOLE's coord, the projection onto the axis (same frame as the Pore Profile CSV)"
@@ -63153,6 +63250,9 @@ proc ::VMDPathFinder::export_hydration_csv {} {
     set _f [expr {$_bulk * 1000.0}]
     set fh [open $fn w]
     puts $fh "# VMDPathFinder hydration profile. selection=\"[dict get $hydration_data wsel]\" bulk=[dict get $hydration_data bulk] frames=[dict get $hydration_data nframes] dz=[dict get $hydration_data dz] chap_mode=[expr {$_chap ? 1 : 0}]"
+    if {[_water_is_beads [dict get $hydration_data wsel]]} {
+        puts $fh "# water is counted as Martini beads: waters_per_frame and bulk are in beads (one W bead = four water molecules); rel_density and free energy are ratios and unaffected."
+    }
     # How the density was ESTIMATED and how a dry bin was bounded. Without these
     # two lines a barrier height cannot be reproduced or compared between runs.
     set _kde [expr {[dict exists $hydration_data kde] ? [dict get $hydration_data kde] : ""}]

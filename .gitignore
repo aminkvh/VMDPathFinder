@@ -232,3 +232,4 @@ native/conn_lobes
 
 # scratch recordings made while debugging smoothing; never repository content
 /smooth.gif
+tools/.martini_cache/

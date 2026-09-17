@@ -127,6 +127,7 @@ jobs:
           # HOLE install (HOLE 2's own simple.rad, Apache-2.0)
           mkdir -p "$d/rad"
           cp vmdpathfinder/tests/fixtures/simple.rad "$d/rad/"
+          cp vmdpathfinder/rad/martini2.rad vmdpathfinder/rad/martini3.rad "$d/rad/"
           # sos_triangle_fast is MODIFIED Apache-2.0 HOLE code: distributing
           # the binary requires the Apache licence text and NOTICE to travel
           # with it, not only the project's own MIT licence.
@@ -148,11 +149,13 @@ jobs:
               echo "  hydro_project       hydration acceleration"
               echo "  vmdpathfinder_accel.manifest  read by the plugin's acceleration indicator"
               echo "  rad/simple.rad      HOLE radius file, so no separate install is needed"
+              echo "  rad/martini2.rad, rad/martini3.rad  bead radii for Martini systems"
             else
               echo "  sos_triangle        the fast triangulation (drop-in for stock)"
               echo "  mole_tunnel_engine  tunnel search"
               echo "  hydro_project       hydration acceleration"
               echo "  rad/simple.rad      HOLE radius file"
+              echo "  rad/martini2.rad, rad/martini3.rad  bead radii for Martini systems"
               echo
               echo "  The accelerated Fortran pair (hole, sph_process) is not"
               echo "  prebuilt for this platform - build locally (macOS: gfortran"

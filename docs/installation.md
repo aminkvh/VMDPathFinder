@@ -86,7 +86,7 @@ Open **File → Settings** and select:
 | `sph_process` | `sph_process` |
 | `sos_triangle` | `sos_triangle` from a local rebuild, or release `sos_triangle_fast`. The marching-cubes mesher, the Nelder-Mead search and the Connolly classifier are built into it |
 | MOLE tunnel engine | `mole_tunnel_engine` |
-| Radius file | an appropriate HOLE `.rad` file |
+| Radius file | an appropriate HOLE `.rad` file; **Preset** lists the shipped ones, including `martini2.rad` and `martini3.rad` |
 
 VMDPathFinder checks the selected files in this window. The HOLE, `sph_process`, and
 `sos_triangle` rows show green **accelerated** indicators when the VMDPathFinder
