@@ -47454,11 +47454,14 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
     # every frame's direction is identical anyway).
     set _rfd_sorted [lsort -integer [dict keys $_rf_axis]]
     set _iux $ux; set _iuy $uy; set _iuz $uz
+    set _iox $mx; set _ioy $my; set _ioz $mz
+    set _ra_sorted [expr {$_flow_tunnel ? {} : [lsort -integer $result_frames]}]
+    array unset _acom
     lassign [_conn_axis_basis $ux $uy $uz] _e1x _e1y _e1z _e2x _e2y _e2z
     for {set f $_f_lo} {$f <= $_f_hi} {incr f} {
         if {[llength $_rfd_sorted]} {
             set _nrf [_nearest_int_in_sorted_list $f $_rfd_sorted]
-            lassign [dict get $_rf_axis $_nrf] _ _ _ _iux _iuy _iuz
+            lassign [dict get $_rf_axis $_nrf] _iox _ioy _ioz _iux _iuy _iuz
         }
         $isel frame $f
         lassign [molinfo $molid get {a b c} frame $f] Lx Ly Lz
@@ -47473,6 +47476,21 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
                 ($Lz>0 && abs($comz-$ppz)>$Lz/2.0)} { incr npjump }
         }
         set pcom_prev [list $comx $comy $comz]
+        # Put z in the walls' frame: relative to the protein this frame, then
+        # placed as the protein sat at the nearest analysed frame, whose walls
+        # are measured from the origin. Done by sliding the min-image centre
+        # along the axis; R is unchanged.
+        if {!$_flow_tunnel && [llength $_ra_sorted] && $psel ne ""} {
+            set _nra [_nearest_int_in_sorted_list $f $_ra_sorted]
+            if {![info exists _acom($_nra)]} {
+                $psel frame $_nra
+                set _acom($_nra) [measure center $psel]
+                $psel frame $f
+            }
+            lassign $_acom($_nra) _ax _ay _az
+            set _so [expr {($_iox-$_ax)*$_iux+($_ioy-$_ay)*$_iuy+($_ioz-$_az)*$_iuz}]
+            set comx [expr {$comx+$_so*$_iux}]; set comy [expr {$comy+$_so*$_iuy}]; set comz [expr {$comz+$_so*$_iuz}]
+        }
         # This trajectory frame's own sphere set for the true-3D test, resolved ONCE
         # (not per ion) via the same nearest-analyzed-frame lookup as the axis direction.
         set _cur_spheres {}; set _cur_index {}
@@ -48276,15 +48294,17 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
     # the settings gear, and the returned dict's r_pass field).
     set _pass_shell [_ion_flow_passage_shell]
     set _occ_shell [_ion_flow_shell_value]
-    # Optional explicit crossing window "R zlo zhi" (A, displayed axis): replaces
-    # the surface test for passage membership, so a count can be reproduced
-    # against an external definition. Empty = the surface test.
+    # Optional explicit crossing window "R zlo zhi ?zc?" (A, displayed axis):
+    # replaces the surface test for passage membership, and optionally the
+    # plane, so a count can be reproduced against an external definition.
+    # Empty = the surface test and the mean constriction.
     set _win [expr {[info exists state(ion_flow_window)] ? [string trim $state(ion_flow_window)] : ""}]
-    if {[llength $_win] != 3 || ![string is double -strict [lindex $_win 0]] \
-        || ![string is double -strict [lindex $_win 1]] || ![string is double -strict [lindex $_win 2]]} {
-        set _win ""
+    if {[llength $_win] ni {3 4}} { set _win "" }
+    foreach _wv $_win { if {![string is double -strict $_wv]} { set _win ""; break } }
+    if {$_win ne ""} {
+        lassign $_win _wR _wlo _whi _wzc
+        if {$_wzc ne ""} { set zc $_wzc }
     }
-    if {$_win ne ""} { lassign $_win _wR _wlo _whi }
     array set _occ_seen {}
     set occ_cnt {}
     for {set i 0} {$i < $N} {incr i} { lappend occ_cnt 0 }
@@ -48377,7 +48397,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
                 # In-pore step between adjacent frames; under 0.01 A is a
                 # repeated frame (e.g. a .gro loaded before its .xtc), not motion.
                 if {$_pdf ne "" && $_df-$_pdf == 1 && abs($_dzz-$_pdz) >= 0.01} {
-                    lappend _steps [expr {abs($_dzz-$_pdz)}]
+                    lappend _steps [list [expr {abs($_dzz-$_pdz)}] [expr {($_dzz+$_pdz)/2.0}]]
                 }
                 if {$_pdf ne "" && ($_df-$_pdf) <= $_gapb && abs($_dzz-$_pdz) < $zflip} {
                     if {$_pdz <= $zc && $_dzz > $zc} { incr _tr_up } \
@@ -48439,7 +48459,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
     foreach c $occ_cnt { lappend occ_pct [expr {100.0 * $c / $nfd}] }
     set species_label [expr {$species_all ? "All" : $species}]
     lassign [_ion_flow_resolution $_steps [expr {[dict exists $raw rprof] ? [dict get $raw rprof] : {}}]] \
-        _step_med _step_ref _step_unres
+        _step_med _step_ratio _step_unres
     set _ncount [dict get $raw nions]
     if {$species_water} { set _ncount [expr {[dict exists $raw nwater] ? [dict get $raw nwater] : 0}] }
     return [dict create nr $nr nz $nz zmin $zmin zmax $zmax r_cut $r_cut r_pass $r_pass zc $zc \
@@ -48447,7 +48467,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         nions $_ncount noun [expr {$species_water ? "waters" : "ions"}] \
         count_per_frame $count_per_frame count_per_species $count_per_species \
         n_cross_up $n_cross_up n_cross_down $n_cross_down \
-        step_med $_step_med step_ref $_step_ref unresolved $_step_unres \
+        step_med $_step_med step_ratio $_step_ratio unresolved $_step_unres \
         nframes $nf nused $nf frame_lo $_f0 rmin_hole $rmin_hole rmax_hole [dict get $raw rmax_hole] \
         species $species_label traces $out_traces stride 1 protein_wrapped [dict get $raw protein_wrapped] box_lz $box_lz \
         rprof [expr {[dict exists $raw rprof] ? [dict get $raw rprof] : {}}] \
@@ -48456,28 +48476,42 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
 }
 
 proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
-    # Can crossings be resolved? {median in-pore step, reference length,
-    # unresolved}. Reference = the narrowest well-sampled mean radius, floor
-    # 1 A: a molecule moving more than the constriction's own width between
-    # frames may have left and re-entered unseen. Median "" with no steps.
+    # Can crossings be resolved? steps: {|dz| z} per in-pore step between
+    # adjacent frames. Each step is compared with the mean pore radius where
+    # it happened (floor 1 A): moving more than the pore's own width between
+    # frames, a molecule may have left and re-entered unseen. Returns
+    # {median step, median step/radius, unresolved}; "" "" 0 with no steps.
     if {![llength $steps]} { return [list "" "" 0] }
-    set s [lsort -real $steps]
-    set med [lindex $s [expr {[llength $s]/2}]]
-    set rmin 1e30
-    foreach p $rprof {
-        lassign $p _z r _f ok
-        if {$ok eq "" || $ok} { if {$r < $rmin} { set rmin $r } }
+    set zs {}; set rs {}
+    foreach p [lsort -real -index 0 $rprof] { lappend zs [lindex $p 0]; lappend rs [lindex $p 1] }
+    set n [llength $zs]
+    set d {}; set q {}
+    foreach st $steps {
+        lassign $st dz z
+        set r 1.0
+        if {$n} {
+            set lo 0; set hi [expr {$n-1}]
+            while {$lo < $hi} {
+                set mid [expr {($lo+$hi)/2}]
+                if {[lindex $zs $mid] < $z} { set lo [expr {$mid+1}] } else { set hi $mid }
+            }
+            if {$lo > 0 && abs([lindex $zs [expr {$lo-1}]]-$z) < abs([lindex $zs $lo]-$z)} { incr lo -1 }
+            set r [expr {max(1.0, [lindex $rs $lo])}]
+        }
+        lappend d $dz; lappend q [expr {$dz/$r}]
     }
-    set ref [expr {$rmin < 1.0 || $rmin >= 1e30 ? 1.0 : $rmin}]
-    return [list $med $ref [expr {$med > $ref}]]
+    set h [expr {[llength $d]/2}]
+    set med [lindex [lsort -real $d] $h]
+    set qm [lindex [lsort -real $q] $h]
+    return [list $med $qm [expr {$qm > 1.0}]]
 }
 
 proc ::VMDPathFinder::_ion_flow_resolution_note {d} {
     # Header warning when frames are too far apart to resolve crossings; "" otherwise.
     if {![dict exists $d unresolved] || ![dict get $d unresolved]} { return "" }
-    return [format "\u26a0 frames too far apart to resolve crossings: in-pore step %.1f \u00c5\
-        (median, adjacent frames) > %.1f \u00c5 constriction radius - counts are not translocations" \
-        [dict get $d step_med] [dict get $d step_ref]]
+    return [format "\u26a0 frames too far apart to resolve crossings: molecules move a median %.1f \u00c5\
+        between frames inside the pore, %.1f\u00d7 the local pore radius - counts are not translocations" \
+        [dict get $d step_med] [dict get $d step_ratio]]
 }
 
 proc ::VMDPathFinder::_ion_flow_refilter {args} {
@@ -49847,7 +49881,7 @@ proc ::VMDPathFinder::export_ion_flow_csv {} {
     set _sp [expr {[dict exists $d species] ? [dict get $d species] : "All"}]
     puts $fh "# ion-flow R-Z grid; species=$_sp ions=[dict get $d nions] frames=[dict get $d nused] zc=[format %.3f [dict get $d zc]] flux_up=[dict get $d up] flux_down=[dict get $d down] flux_net=[dict get $d net]"
     if {[dict exists $d step_med] && [dict get $d step_med] ne ""} {
-        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, constriction radius=[format %.3f [dict get $d step_ref]] A, crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}]"
+        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}]"
     }
     # count = raw ion-observation tally in the cell; occupancy_pct = % of sampled frames with
     # >=1 ion in the cell (the plot's primary metric); number_density = count / cylindrical

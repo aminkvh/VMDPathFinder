@@ -38,19 +38,19 @@ namespace eval ::VMDPathFinder {
     set r [count_permeation 0 ion z -5 5]
     puts "WRAP [format %.3f [dict get \$r frac_wrap]] [dict get \$r unreliable]"
     puts "GATE [_perm_unreliable 0.0 20.0 55.0] [_perm_unreliable 0.0 10.0 55.0] [_perm_unreliable 0.5 1.0 55.0]"
-    puts "RES1 [_ion_flow_resolution {12.0 13.0 14.0} {{0 5.0} {1 2.2} {2 6.0}}]"
-    puts "RES2 [_ion_flow_resolution {0.3 0.3 0.4} {{0 0.45} {1 2.0}}]"
+    puts "RES1 [_ion_flow_resolution {{12.0 0} {13.0 1} {14.0 2}} {{0 5.0} {1 2.2} {2 6.0}}]"
+    puts "RES2 [_ion_flow_resolution {{0.3 0} {0.3 1} {0.4 0}} {{0 0.45} {1 2.0}}]"
     puts "RES3 [_ion_flow_resolution {} {{0 2.0}}]"
-    puts "RES4 [_ion_flow_resolution {3.0} {{0 0.5 0 0} {1 2.0 0 1}}]"
+    puts "RES4 [_ion_flow_resolution {{1.2 5} {1.1 5} {0.3 0}} {{0 0.6} {5 5.0}}]"
 }
 TCLEOF
 )
 line() { printf '%s\n' "$OUT" | grep "^$1 " | head -1; }
 [ "$(line WRAP)" = "WRAP 0.111 0" ] && ok "one box crossing is one wrap event, not a wrap on every later step" || bad "wrap: $(line WRAP) $OUT"
 [ "$(line GATE)" = "GATE 1 0 1" ] && ok "unreliable when the median step exceeds a quarter of half the box" || bad "gate: $(line GATE)"
-[ "$(line RES1)" = "RES1 13.0 2.2 1" ] && ok "in-pore step above the constriction radius is unresolved" || bad "res1: $(line RES1)"
-[ "$(line RES2)" = "RES2 0.3 1.0 0" ] && ok "sub-angstrom constriction floors the reference at 1 A" || bad "res2: $(line RES2)"
+[ "$(line RES1)" = "RES1 13.0 2.4 1" ] && ok "steps several times the local radius are unresolved" || bad "res1: $(line RES1)"
+[ "$(line RES2)" = "RES2 0.3 0.3 0" ] && ok "sub-angstrom radius floors at 1 A" || bad "res2: $(line RES2)"
 [ "$(line RES3)" = "RES3 {} {} 0" ] && ok "no in-pore steps: no verdict" || bad "res3: $(line RES3)"
-[ "$(line RES4)" = "RES4 3.0 2.0 1" ] && ok "a poorly sampled bin is not the constriction" || bad "res4: $(line RES4)"
+[ "$(line RES4)" = "RES4 1.1 0.24 0" ] && ok "fast steps in a wide cavity are not flagged" || bad "res4: $(line RES4)"
 echo "  -> $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
