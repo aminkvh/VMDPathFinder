@@ -1,0 +1,62 @@
+# generated_by: gate_water.py (wet/dry per frame, second system)
+# utc: 2026-10-23T23:00:02Z
+# git: 546f1c5+dirty (vmdpathfinder.tcl diff touches only count_permeation/_ion_flow_* procs; hydration and HOLE paths unchanged)
+# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
+# nproc: 16  OMP_NUM_THREADS: unset
+# bin: chap sha256:f7bea66d3a072b22 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/scratch_chap_gromacs/chap-install/chap/bin/chap
+# bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
+# system: sim_1.dcd + step5_assembly.hmr.psf (alpha5beta3 GABA_A, 160,772 atoms, 50 frames, 30,600 TIP3; Zenodo 10.5281/zenodo.20705736)
+# chap: chap -f sim1.xtc -s sim1.gro -sel-pathway Protein -sel-solvent 'resname TIP3' -de-bandwidth -1 -hydrophob-fallback 0 -pf-init-probe-pos -0.08 0.09 3.2 -pf-chan-dir-vec 0 0 1  (gro: HSD renamed HIS; fallback affects hydrophobicity only)
+# ours: verify_chap_sim1.tcl, selection protein, cpoint -0.8 0.9 32.0, cvect 0 0 1, endrad 15.0, sample 0.25, water_sel 'resname TIP3', seed 1
+# ours = endrad 5.0 sample 0.5 run (min-radius z within -1.0..-0.5 A in 45/50 frames); gate waters = TIP3 OH2 within r of the CA-centred axis and |dz| of that frame's min-radius z; dry = 0 waters in the r4/dz3 cylinder
+frame,ours_min_radius_A,ours_min_z_A,chap_min_radius_A,chap_min_solvent_density_nm3,gate_waters_r4_dz3,gate_waters_r6_dz5
+0,1.768,-15.25,1.762,0.0002,1,10
+1,1.590,-10.25,1.589,14.7059,3,8
+2,1.451,-9.50,1.454,0.5994,3,8
+3,1.279,-0.50,1.106,0.4975,0,4
+4,1.474,-0.50,1.437,0.4262,0,7
+5,1.538,-0.50,1.537,13.3521,2,11
+6,1.105,-0.50,1.102,0.4508,1,8
+7,1.286,-0.75,1.283,0.2682,1,7
+8,1.541,-10.75,1.551,14.3887,3,7
+9,1.667,-0.50,1.561,4.7712,2,5
+10,1.480,-10.50,1.484,6.5816,0,5
+11,1.161,-0.50,1.093,0.2180,2,4
+12,1.435,-0.50,1.383,12.8076,1,7
+13,1.594,-0.75,1.578,0.2769,2,9
+14,1.477,-0.50,1.425,15.4932,1,9
+15,1.269,-0.50,1.168,3.4163,0,2
+16,1.399,-0.50,1.316,0.7658,1,6
+17,1.454,-0.50,1.424,15.9738,0,7
+18,1.085,-0.50,1.066,17.3442,0,3
+19,1.629,-0.50,1.582,0.3384,3,9
+20,1.321,-0.50,1.318,11.9616,0,10
+21,1.577,-0.50,1.463,14.7514,0,5
+22,1.460,-0.50,1.396,0.4365,1,7
+23,1.423,-0.50,1.455,0.3514,0,7
+24,1.496,-0.75,1.504,14.4992,0,7
+25,1.728,-0.50,1.708,16.6947,0,7
+26,1.135,-0.50,1.112,17.2993,0,4
+27,1.629,-0.50,1.617,11.3051,0,5
+28,1.386,-0.75,1.386,7.8800,2,5
+29,1.125,-0.50,1.126,11.5905,2,4
+30,1.240,-0.75,1.238,0.6151,0,8
+31,1.021,-0.50,1.031,13.8806,0,3
+32,1.445,-0.50,1.397,0.4477,1,6
+33,1.324,-0.50,1.330,9.9526,2,6
+34,1.489,-0.50,1.421,5.7926,0,6
+35,1.306,-0.50,1.306,0.6198,0,2
+36,1.547,-0.50,1.531,0.4002,0,9
+37,1.494,-0.50,1.421,0.5002,3,12
+38,1.142,-0.50,1.031,0.7333,0,4
+39,1.024,-0.50,1.010,3.6701,0,3
+40,1.216,-0.50,1.209,7.4932,0,7
+41,1.089,-0.50,1.076,12.5659,1,8
+42,1.011,-0.75,1.009,0.4750,0,5
+43,1.341,-0.50,1.349,0.2834,0,6
+44,1.184,-1.00,1.176,0.2587,0,4
+45,1.348,-0.75,1.156,10.9426,0,6
+46,1.143,-0.50,1.129,0.2327,0,2
+47,1.237,-0.50,0.870,15.7076,1,5
+48,1.117,-0.50,1.109,11.2882,0,3
+49,1.243,-0.50,1.248,14.2677,1,7
