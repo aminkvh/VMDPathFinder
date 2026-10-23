@@ -1,0 +1,48 @@
+# generated_by: vpf_review_tmp/counter drivers (treptow_perm.tcl, treptow_flow.tcl) + count_permeation_independent.py
+# utc: 2026-10-23T23:09:00Z
+# git: afdd82d (plugin with per-frame box, mean-profile constriction and reliability gates)
+# data: Treptow et al. eLife 2024;13:e97696, Zenodo 10.5281/zenodo.10938041,
+#   Figure02_Chimera_Trajectory_{AMBER,CHARMM36m}: Kv1.2-2.1, 91 K+ (resname POT), 4167 frames, +200 mV.
+# dt = 2.4 ns/frame -> t = 4166 x 2.4 ns = 9.998 us. Evidence: the paper's Fig 2B AMBER run is 10 us,
+#   unrestrained, with the I398 gate closing after ~4 us; in the deposited AMBER DCD the min I398 CB-CB
+#   distance by frame decile is 9.0 9.7 10.7 10.2 8.5 5.3 5.2 5.3 5.2 5.3 A (closes at 40-50% of frames);
+#   the .ark 'interval = 240' is a run template and the DCD header dt (0.049 ps) is meaningless.
+# Per-trajectory reference: 1 conduction event in 10 us (AMBER, Fig 2B). The 44 events / 30 us
+#   (~0.2 pA, ~1.17 pS) are POOLED over AMBER+CHARMM and restrained runs, not this trajectory.
+# Definitions (both implementations take the same parameters; neither shares code):
+#   plane         = plugin Ion & Water crossings: ion min-imaged about the protein geometric centre each
+#                   frame, projected on cvect (0,0,1); in-window = R<r and zlo<=z<=zhi (plugin coords minus
+#                   coord_offset 1.0 A); crossing = consecutive in-window samples <=3 frames apart on
+#                   opposite sides of zc. mol_up/mol_down = molecules by net direction.
+#   slab          = plugin Permeation dialog: z rel. protein centre, unwrapped to the nearest image,
+#                   counted when an ion next appears beyond the OPPOSITE bulk boundary.
+#   translocation = independent only: continuous in-pore trace entering from one side, leaving by the other.
+# step_median_A = median in-window |dz| between adjacent frames (plane/translocation; per 2.4 ns), or the
+#   median folded step of all ions (slab). gate = plugin verdict: plane 'resolved' when the in-pore step is
+#   below the constriction radius (floor 1 A); slab 'UNRELIABLE' when wrap events >30% of steps or the
+#   median step > half box/4 (here 16 A vs 13.8 A, wrap events 0.34/0.36): bulk K+ are decorrelated at
+#   2.4 ns, so bulk-to-bulk counts here are periodic-image artifacts in BOTH implementations.
+# I = net*e/t, G = I/V at 200 mV.
+forcefield,definition,window,implementation,up,down,net,mol_up,mol_down,recrossings,unresolved,current_pA,conductance_pS,step_median_A,gate
+AMBER,plane,R<3 z[-7,7] zc=0,plugin,3,2,1,1,0,,,0.0160,0.0801,0.317,resolved
+AMBER,plane,R<3 z[-7,7] zc=0,independent,3,2,1,1,0,,,0.0160,0.0801,0.31,
+AMBER,plane,R<4 z[-11,14] zc=0,plugin,3,2,1,1,0,,,0.0160,0.0801,0.321,resolved
+AMBER,plane,R<4 z[-11,14] zc=0,independent,3,2,1,1,0,,,0.0160,0.0801,0.314,
+AMBER,plane,HOLE surface + 0.5 A (default),plugin,70,87,-17,37,47,,,-0.2724,-1.3621,0.389,resolved
+AMBER,slab,bulk z<-6 | z>8,plugin,347,376,-29,,,,,-0.4647,-2.3235,16.08,UNRELIABLE
+AMBER,slab,bulk z<-6 | z>8,independent,347,376,-29,,,,,-0.4647,-2.3235,,
+AMBER,slab,bulk z<-10 | z>15,plugin,344,370,-26,,,,,-0.4166,-2.0832,16.08,UNRELIABLE
+AMBER,slab,bulk z<-10 | z>15,independent,344,370,-26,,,,,-0.4166,-2.0832,,
+AMBER,translocation,lab R<3 z[-6,8],independent,0,0,0,,,3,3,0.0000,0.0000,0.25,
+AMBER,translocation,lab R<4 z[-10,15],independent,1,2,-1,,,5,3,-0.0160,-0.0801,0.26,
+CHARMM36m,plane,R<3 z[-7,7] zc=0,plugin,93,45,48,38,1,,,0.7692,3.8458,0.461,resolved
+CHARMM36m,plane,R<3 z[-7,7] zc=0,independent,93,45,48,38,1,,,0.7692,3.8458,0.452,
+CHARMM36m,plane,R<4 z[-11,14] zc=0,plugin,93,45,48,38,1,,,0.7692,3.8458,0.465,resolved
+CHARMM36m,plane,R<4 z[-11,14] zc=0,independent,93,45,48,38,1,,,0.7692,3.8458,0.457,
+CHARMM36m,plane,HOLE surface + 0.5 A (default),plugin,207,157,50,61,38,,,0.8012,4.0061,0.717,resolved
+CHARMM36m,slab,bulk z<-6 | z>8,plugin,323,336,-13,,,,,-0.2083,-1.0416,16.54,UNRELIABLE
+CHARMM36m,slab,bulk z<-6 | z>8,independent,323,336,-13,,,,,-0.2083,-1.0416,,
+CHARMM36m,slab,bulk z<-10 | z>15,plugin,312,324,-12,,,,,-0.1923,-0.9615,16.54,UNRELIABLE
+CHARMM36m,slab,bulk z<-10 | z>15,independent,312,324,-12,,,,,-0.1923,-0.9615,,
+CHARMM36m,translocation,lab R<3 z[-6,8],independent,43,3,40,,,37,6,0.6410,3.2049,0.36,
+CHARMM36m,translocation,lab R<4 z[-10,15],independent,50,29,21,,,118,15,0.3365,1.6826,0.38,
