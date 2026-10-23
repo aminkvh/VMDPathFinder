@@ -1,0 +1,27 @@
+# make_figure_caver_sweep.py: ARI on each target pool at the threshold that is best on the source pool
+source_pool,source_best_threshold,target_pool,ARI_at_transferred,ARI_at_target_best,ARI_at_default_3.0
+"LinB, one tunnel per snapshot (83)",2.5,"LinB, one tunnel per snapshot (83)",1.000,1.000,0.912
+"LinB, one tunnel per snapshot (83)",2.5,"LinB, all tunnels (145)",0.417,0.893,0.339
+"LinB, one tunnel per snapshot (83)",2.5,"DhaA, stride 200 (603)",0.702,0.788,0.577
+"LinB, one tunnel per snapshot (83)",2.5,"DhaA, stride 100 (1216)",0.733,0.818,0.582
+"LinB, one tunnel per snapshot (83)",2.5,"DhaA, stride 50 (2342)",0.765,0.857,0.631
+"LinB, all tunnels (145)",1.5,"LinB, one tunnel per snapshot (83)",0.498,1.000,0.912
+"LinB, all tunnels (145)",1.5,"LinB, all tunnels (145)",0.893,0.893,0.339
+"LinB, all tunnels (145)",1.5,"DhaA, stride 200 (603)",0.697,0.788,0.577
+"LinB, all tunnels (145)",1.5,"DhaA, stride 100 (1216)",0.727,0.818,0.582
+"LinB, all tunnels (145)",1.5,"DhaA, stride 50 (2342)",0.736,0.857,0.631
+"DhaA, stride 200 (603)",2.0,"LinB, one tunnel per snapshot (83)",0.848,1.000,0.912
+"DhaA, stride 200 (603)",2.0,"LinB, all tunnels (145)",0.469,0.893,0.339
+"DhaA, stride 200 (603)",2.0,"DhaA, stride 200 (603)",0.788,0.788,0.577
+"DhaA, stride 200 (603)",2.0,"DhaA, stride 100 (1216)",0.818,0.818,0.582
+"DhaA, stride 200 (603)",2.0,"DhaA, stride 50 (2342)",0.857,0.857,0.631
+"DhaA, stride 100 (1216)",2.0,"LinB, one tunnel per snapshot (83)",0.848,1.000,0.912
+"DhaA, stride 100 (1216)",2.0,"LinB, all tunnels (145)",0.469,0.893,0.339
+"DhaA, stride 100 (1216)",2.0,"DhaA, stride 200 (603)",0.788,0.788,0.577
+"DhaA, stride 100 (1216)",2.0,"DhaA, stride 100 (1216)",0.818,0.818,0.582
+"DhaA, stride 100 (1216)",2.0,"DhaA, stride 50 (2342)",0.857,0.857,0.631
+"DhaA, stride 50 (2342)",2.0,"LinB, one tunnel per snapshot (83)",0.848,1.000,0.912
+"DhaA, stride 50 (2342)",2.0,"LinB, all tunnels (145)",0.469,0.893,0.339
+"DhaA, stride 50 (2342)",2.0,"DhaA, stride 200 (603)",0.788,0.788,0.577
+"DhaA, stride 50 (2342)",2.0,"DhaA, stride 100 (1216)",0.818,0.818,0.582
+"DhaA, stride 50 (2342)",2.0,"DhaA, stride 50 (2342)",0.857,0.857,0.631
