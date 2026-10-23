@@ -25,25 +25,25 @@
 #   bulk-to-bulk counts here are periodic-image artifacts in BOTH implementations.
 # I = net*e/t, G = I/V at 200 mV.
 forcefield,definition,window,implementation,up,down,net,mol_up,mol_down,recrossings,unresolved,current_pA,conductance_pS,step_median_A,step_over_local_radius,gate
-AMBER,plane,R<3 z[-6,8] zc=1.0,plugin,4,3,1,2,1,,,0.0160,0.0801,0.26,0.254,resolved
-AMBER,plane,R<3 z[-6,8] zc=1.0,independent,4,3,1,2,1,,,0.0160,0.0801,0.254,,
-AMBER,plane,R<4 z[-10,15] zc=1.0,plugin,4,3,1,2,1,,,0.0160,0.0801,0.264,0.256,resolved
-AMBER,plane,R<4 z[-10,15] zc=1.0,independent,4,3,1,2,1,,,0.0160,0.0801,0.258,,
-AMBER,plane,HOLE surface + 0.5 A (default),plugin,71,87,-16,37,47,,,-0.2564,-1.2819,0.319,0.292,resolved
-AMBER,slab,bulk z<-6 | z>8,plugin,347,376,-29,,,,,-0.4647,-2.3235,16.08,,UNRELIABLE
-AMBER,slab,bulk z<-6 | z>8,independent,347,376,-29,,,,,-0.4647,-2.3235,,,
-AMBER,slab,bulk z<-10 | z>15,plugin,344,370,-26,,,,,-0.4166,-2.0832,16.08,,UNRELIABLE
-AMBER,slab,bulk z<-10 | z>15,independent,344,370,-26,,,,,-0.4166,-2.0832,,,
-AMBER,translocation,R<3 z[-6,8],independent,0,0,0,,,3,3,0.0000,0.0000,0.25,,
-AMBER,translocation,R<4 z[-10,15],independent,1,2,-1,,,5,3,-0.0160,-0.0801,0.26,,
-CHARMM36m,plane,R<3 z[-6,8] zc=1.0,plugin,135,88,47,37,1,,,0.7531,3.7657,0.37,0.327,resolved
-CHARMM36m,plane,R<3 z[-6,8] zc=1.0,independent,135,88,47,37,1,,,0.7531,3.7657,0.363,,
-CHARMM36m,plane,R<4 z[-10,15] zc=1.0,plugin,136,88,48,37,0,,,0.7692,3.8458,0.382,0.332,resolved
-CHARMM36m,plane,R<4 z[-10,15] zc=1.0,independent,136,88,48,37,0,,,0.7692,3.8458,0.375,,
-CHARMM36m,plane,HOLE surface + 0.5 A (default),plugin,251,200,51,62,38,,,0.8172,4.0862,0.607,0.436,resolved
-CHARMM36m,slab,bulk z<-6 | z>8,plugin,323,336,-13,,,,,-0.2083,-1.0416,16.54,,UNRELIABLE
-CHARMM36m,slab,bulk z<-6 | z>8,independent,323,336,-13,,,,,-0.2083,-1.0416,,,
-CHARMM36m,slab,bulk z<-10 | z>15,plugin,312,324,-12,,,,,-0.1923,-0.9615,16.54,,UNRELIABLE
-CHARMM36m,slab,bulk z<-10 | z>15,independent,312,324,-12,,,,,-0.1923,-0.9615,,,
-CHARMM36m,translocation,R<3 z[-6,8],independent,43,3,40,,,37,6,0.6410,3.2049,0.36,,
-CHARMM36m,translocation,R<4 z[-10,15],independent,50,29,21,,,118,15,0.3365,1.6826,0.38,,
+AMBER,plane,"R<3 z[-6,8] zc=1.0",plugin,4,3,1,2,1,,,0.0160,0.0801,0.26,0.254,resolved
+AMBER,plane,"R<3 z[-6,8] zc=1.0",independent,4,3,1,2,1,,,0.0160,0.0801,0.254,,
+AMBER,plane,"R<4 z[-10,15] zc=1.0",plugin,4,3,1,2,1,,,0.0160,0.0801,0.264,0.256,resolved
+AMBER,plane,"R<4 z[-10,15] zc=1.0",independent,4,3,1,2,1,,,0.0160,0.0801,0.258,,
+AMBER,plane,"HOLE surface + 0.5 A (default)",plugin,71,87,-16,37,47,,,-0.2564,-1.2819,0.319,0.292,resolved
+AMBER,slab,"bulk z<-6 | z>8",plugin,347,376,-29,,,,,-0.4647,-2.3235,16.08,,UNRELIABLE
+AMBER,slab,"bulk z<-6 | z>8",independent,347,376,-29,,,,,-0.4647,-2.3235,,,
+AMBER,slab,"bulk z<-10 | z>15",plugin,344,370,-26,,,,,-0.4166,-2.0832,16.08,,UNRELIABLE
+AMBER,slab,"bulk z<-10 | z>15",independent,344,370,-26,,,,,-0.4166,-2.0832,,,
+AMBER,translocation,"R<3 z[-6,8]",independent,0,0,0,,,3,3,0.0000,0.0000,0.25,,
+AMBER,translocation,"R<4 z[-10,15]",independent,1,2,-1,,,5,3,-0.0160,-0.0801,0.26,,
+CHARMM36m,plane,"R<3 z[-6,8] zc=1.0",plugin,135,88,47,37,1,,,0.7531,3.7657,0.37,0.327,resolved
+CHARMM36m,plane,"R<3 z[-6,8] zc=1.0",independent,135,88,47,37,1,,,0.7531,3.7657,0.363,,
+CHARMM36m,plane,"R<4 z[-10,15] zc=1.0",plugin,136,88,48,37,0,,,0.7692,3.8458,0.382,0.332,resolved
+CHARMM36m,plane,"R<4 z[-10,15] zc=1.0",independent,136,88,48,37,0,,,0.7692,3.8458,0.375,,
+CHARMM36m,plane,"HOLE surface + 0.5 A (default)",plugin,251,200,51,62,38,,,0.8172,4.0862,0.607,0.436,resolved
+CHARMM36m,slab,"bulk z<-6 | z>8",plugin,323,336,-13,,,,,-0.2083,-1.0416,16.54,,UNRELIABLE
+CHARMM36m,slab,"bulk z<-6 | z>8",independent,323,336,-13,,,,,-0.2083,-1.0416,,,
+CHARMM36m,slab,"bulk z<-10 | z>15",plugin,312,324,-12,,,,,-0.1923,-0.9615,16.54,,UNRELIABLE
+CHARMM36m,slab,"bulk z<-10 | z>15",independent,312,324,-12,,,,,-0.1923,-0.9615,,,
+CHARMM36m,translocation,"R<3 z[-6,8]",independent,43,3,40,,,37,6,0.6410,3.2049,0.36,,
+CHARMM36m,translocation,"R<4 z[-10,15]",independent,50,29,21,,,118,15,0.3365,1.6826,0.38,,
