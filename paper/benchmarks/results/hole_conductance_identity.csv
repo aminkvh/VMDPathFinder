@@ -1,0 +1,15 @@
+# generated_by: manual HOLE-conductance identity check (JCIM round-1 reviewer 2, major VII)
+# utc: 2026-10-23T22:23:12Z
+# git: 21970cd+dirty
+# question: is the geometric conductance validated against anything external?
+# answer: it IS HOLE's own model evaluated on HOLE's own geometric factor F. Our
+#   G_ohmic = 100*kappa/F (pore_conductance, vmdpathfinder.tcl:44597); HOLE prints
+#   Gmacro = 1200/F for 1M KCl (rho=1/12 ohm m) i.e. kappa=12 S/m - the same expression.
+#   The check is therefore an identity: our parsed F must equal HOLE's printed F.
+# structure: 1BL8 aligned to z, protein only (ATOM records), simple.rad, sample 0.25, endrad 15
+# note: HOLE prints Gmacro to TWO significant figures (SF2), hence 130 vs the exact 133.75.
+# scope: validates the ohmic term only. The Hall (1975) access term and the
+#   ellipse-area variant are extensions, reported as such.
+quantity,ours,hole,note
+F_sum_ds_over_area_per_A,8.97116,8.972,HOLE prints 3 d.p.; identical at that precision
+G_ohmic_pS_1M_KCl,133.76,133.75,exact 1200/F both sides; HOLE's own printout rounds to 130

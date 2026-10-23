@@ -1,0 +1,24 @@
+# generated_by: count_permeation_independent.py (independent of VMDPathFinder)
+# utc: 2026-10-23T22:30:31Z
+# git: 21970cd+dirty
+# data: Treptow et al. eLife 2024;13:e97696, Zenodo 10.5281/zenodo.10938041,
+#   Figure02_Chimera_Trajectory_{AMBER,CHARMM36m}: Kv1.2-2.1 chimera, 8327 atoms,
+#   91 K+, 4167 frames x 240 ps = 1.000 us, +200 mV. Water stripped from the deposit.
+# published reference (AMBER, open I398 gate): 44 K+ crossings over 30 us => ~1.5 /us,
+#   ionic current ~0.2 pA, conductance ~1.17 pS.
+# RESOLVABILITY (why the count is anchored at the pore, not at bulk), per 240 ps step:
+#   both ends IN PORE : median 0.29 A, p90 0.83, max 8.34
+#   both ends outside : median 20.10 A, p90 88.57, max 123.06   -> 70x separation
+#   Bulk K+ are fully decorrelated at this stride; pore K+ are not. A bulk-to-bulk
+#   definition would pair unrelated sightings; a continuous in-pore trace does not.
+# BOUNDARY SENSITIVITY is the point, not a nuisance: widening the pore region to the
+#   vestibule (r<5, z in [-15,25]) turns vestibule rattling into hundreds of apparent
+#   events with near-zero net and >1500 unresolved entries. The filter-sized windows
+#   give a mean occupancy of ~2 ions, matching the known 2-3 ion filter occupancy.
+forcefield,r_pore_A,z_lo_A,z_hi_A,mean_occupancy_ions,up,down,net,recrossings,unresolved,current_pA
+AMBER,3.0,-6,8,2.00,0,0,0,3,3,0.0000
+AMBER,4.0,-10,15,2.12,1,2,-1,5,3,-0.1602
+AMBER,5.0,-15,25,3.52,318,309,9,1164,1920,1.4422
+CHARMM36m,3.0,-6,8,1.96,43,3,40,37,6,6.4097
+CHARMM36m,4.0,-10,15,2.06,50,29,21,118,15,3.3651
+CHARMM36m,5.0,-15,25,3.24,426,433,-7,1547,1608,-1.1217

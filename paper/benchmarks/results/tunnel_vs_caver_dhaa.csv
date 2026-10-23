@@ -1,0 +1,73 @@
+# generated_by: bench_tunnel_vs_caver_dhaa.sh (compare_tunnel_clustering_vs_caver.py)
+# utc: 2026-10-23T21:50:23Z
+# git: 21970cd+dirty
+# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
+# engine: /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast --tunnel-cluster
+# bin: sos_triangle_fast sha256:be6e428bb989087d /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# ground truth: CAVER 3.0.2's own results on the DhaA 9,999-snapshot trajectory
+#   (Zenodo 10.5281/zenodo.7234700), clustering_threshold 3.0 = CAVER's DEFAULT.
+#   Full pool 120,767 tunnels in 3,050 CAVER clusters. Coordinates and CAVER's own
+#   per-tunnel cluster label read verbatim from analysis/tunnel_profiles.csv.
+# pools: snapshot stride N keeps snapshots with index % N == 0; 'top20' additionally
+#   keeps only CAVER's 20 largest clusters (the analogue of the LinB filtered pool -
+#   CAVER emits thousands of near-singleton clusters here and they dominate any index
+#   taken over all 3,050 labels). Both views reported; neither is the only one.
+# metric: Adjusted Rand Index against CAVER's labels, swept over OUR threshold.
+#   The two distance definitions differ, so thresholds do not map 1:1.
+pool,n_tunnels,n_caver_clusters,threshold,time_s,our_clusters,ARI_vs_CAVER
+stride200,603,197,1.0,0.136144,304,0.518325
+stride200,603,197,1.5,0.132572,185,0.696673
+stride200,603,197,2.0,0.141676,121,0.787671
+stride200,603,197,2.5,0.132819,76,0.702176
+stride200,603,197,3.0,0.143631,54,0.577438
+stride200,603,197,3.5,0.138659,39,0.520332
+stride200,603,197,4.0,0.135804,26,0.438644
+stride200,603,197,5.0,0.143141,13,0.253882
+stride200,603,197,6.0,0.133098,6,0.114020
+stride200,603,197,8.0,0.131877,2,0.035576
+stride200,603,197,10.0,0.130687,1,0.000000
+stride200,603,197,12.0,0.146793,1,0.000000
+stride200,603,197,15.0,0.138662,1,0.000000
+stride200,603,197,20.0,0.136786,1,0.000000
+stride100,1216,287,1.0,0.494937,539,0.519348
+stride100,1216,287,1.5,0.492431,287,0.726763
+stride100,1216,287,2.0,0.510483,166,0.818372
+stride100,1216,287,2.5,0.512757,112,0.732782
+stride100,1216,287,3.0,0.506720,77,0.581574
+stride100,1216,287,3.5,0.497245,52,0.530225
+stride100,1216,287,4.0,0.502565,31,0.435119
+stride100,1216,287,5.0,0.513000,15,0.286862
+stride100,1216,287,6.0,0.487008,8,0.161977
+stride100,1216,287,8.0,0.512608,2,0.036998
+stride100,1216,287,10.0,0.513739,1,0.000000
+stride100,1216,287,12.0,0.513626,1,0.000000
+stride100,1216,287,15.0,0.522930,1,0.000000
+stride100,1216,287,20.0,0.507228,1,0.000000
+stride50,2342,424,1.0,1.651386,825,0.552032
+stride50,2342,424,1.5,1.720763,434,0.735671
+stride50,2342,424,2.0,1.676479,243,0.856558
+stride50,2342,424,2.5,1.730756,148,0.765131
+stride50,2342,424,3.0,1.715523,93,0.630758
+stride50,2342,424,3.5,1.631469,60,0.541843
+stride50,2342,424,4.0,1.750655,37,0.431561
+stride50,2342,424,5.0,1.726986,18,0.320170
+stride50,2342,424,6.0,1.757050,7,0.148991
+stride50,2342,424,8.0,1.623099,2,0.038158
+stride50,2342,424,10.0,1.698399,1,0.000000
+stride50,2342,424,12.0,1.790686,1,0.000000
+stride50,2342,424,15.0,1.766097,1,0.000000
+stride50,2342,424,20.0,1.731137,1,0.000000
+top20_stride100,630,20,1.0,0.074446,161,0.527125
+top20_stride100,630,20,1.5,0.078352,53,0.751881
+top20_stride100,630,20,2.0,0.075948,26,0.861364
+top20_stride100,630,20,2.5,0.083880,14,0.801945
+top20_stride100,630,20,3.0,0.076551,12,0.682365
+top20_stride100,630,20,3.5,0.076827,10,0.606719
+top20_stride100,630,20,4.0,0.083697,9,0.561591
+top20_stride100,630,20,5.0,0.076939,7,0.370652
+top20_stride100,630,20,6.0,0.086705,4,0.319430
+top20_stride100,630,20,8.0,0.081834,2,0.072730
+top20_stride100,630,20,10.0,0.080682,1,0.000000
+top20_stride100,630,20,12.0,0.085904,1,0.000000
+top20_stride100,630,20,15.0,0.081721,1,0.000000
+top20_stride100,630,20,20.0,0.076846,1,0.000000
