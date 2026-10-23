@@ -183,8 +183,10 @@ for tunnel clustering, and CHAP for CHAP-compatible hydration analysis. Open
 [References](docs/references.md) for the exact method-specific references.
 
 VMDPathFinder's original plugin code is MIT-licensed. The installed folder also
-contains a pure-Tcl derivative of Apache-2.0 HOLE 2 code; retain
-`vmdpathfinder/LICENSE-Apache-2.0.txt` and `vmdpathfinder/NOTICE.md`. The optional
+contains a pure-Tcl derivative of Apache-2.0 HOLE 2 code and a port of the
+MIT-licensed MOLE 2 / WebChemistry tunnel engine; retain
+`vmdpathfinder/LICENSE-Apache-2.0.txt`, `vmdpathfinder/LICENSE-MIT-MOLE2.txt` and
+`vmdpathfinder/NOTICE.md`. The optional
 `native` derivative has its own `LICENSE` and `NOTICE`. See
 [LICENSE](LICENSE), [vmdpathfinder/NOTICE.md](vmdpathfinder/NOTICE.md), and
 [native/NOTICE](native/NOTICE).

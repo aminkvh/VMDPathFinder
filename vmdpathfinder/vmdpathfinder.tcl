@@ -35,11 +35,13 @@
 ##
 ## LICENSE:
 ##   VMDPathFinder's ORIGINAL code: MIT License -- see LICENSE in the repository root.
-##   This file ALSO contains code derived from HOLE 2 (Apache License 2.0);
-##   the MIT statement above does not cover those portions. The Apache text and
-##   the required modification notice ship beside this file, inside vmdpathfinder/,
-##   as LICENSE-Apache-2.0.txt and NOTICE.md -- read NOTICE.md before
-##   redistributing.
+##   This file ALSO contains code derived from HOLE 2 (Apache License 2.0) and
+##   code ported from MOLE 2 / WebChemistry.Tunnels.Core (MIT License, Copyright
+##   (c) 2024 Structural bioinformatics research group at National Centre for
+##   Biomolecular Research); the MIT statement above does not cover those
+##   portions. Both licence texts and the required modification notice ship
+##   beside this file, inside vmdpathfinder/, as LICENSE-Apache-2.0.txt,
+##   LICENSE-MIT-MOLE2.txt and NOTICE.md -- read NOTICE.md before redistributing.
 ##
 ## CITATION:
 ##   Cite VMDPathFinder, VMD, and HOLE for every analysis. Add citations for the

@@ -23,3 +23,30 @@ If you use HOLE or this faster build, please also cite the HOLE program:
     Smart, O.S., Neduvelil, J.G., Wang, X., Wallace, B.A. & Sansom, M.S.P.
     HOLE: A program for the analysis of the pore dimensions of ion channel
     structural models. J. Mol. Graph. 14, 354-360 (1996).
+
+
+MOLE 2 / WebChemistry — MIT License
+===================================
+
+`native/mole/` (mole_complex.c, mole_tunnel.c, mole_dh.c, mole_lining.c and
+their headers) is a C port of the MIT-licensed WebChemistry.Tunnels.Core and
+WebChemistry.Framework.Core sources (https://github.com/sb-ncbr/MOLE), written
+by following that source rather than the MOLE 2 method papers.
+
+    MIT License
+    Copyright (c) 2024 Structural bioinformatics research group at National
+    Centre for Biomolecular Research
+
+Full licence text: ./mole/LICENSE-MIT-MOLE2.txt
+
+No MOLE 2 or WebChemistry source file or binary is redistributed here. The
+notice is reproduced because the MIT licence requires it to accompany derived
+works. See ../vmdpathfinder/NOTICE.md for the complete statement, and
+NOTES/mole2-*.md for the places where the upstream source and the published
+papers disagree.
+
+If you use Tunnel mode, please also cite MOLE 2:
+    Sehnal, D.; Svobodova Varekova, R.; Berka, K.; Pravda, L.; Navratilova, V.;
+    Banas, P.; Ionescu, C.-M.; Otyepka, M.; Koca, J. MOLE 2.0: Advanced
+    Approach for Analysis of Biomacromolecular Channels. J. Cheminform. 5, 39
+    (2013).

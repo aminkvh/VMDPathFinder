@@ -2,10 +2,11 @@
 
 VMDPathFinder's own code is MIT-licensed (`LICENSE`, repository root). Parts of
 `vmdpathfinder.tcl` are derived from HOLE 2 and remain under the Apache License 2.0;
-the MIT statement covers VMDPathFinder's own code only.
+other parts are ported from MOLE 2 / WebChemistry and remain under their MIT License.
+The repository-root MIT statement covers VMDPathFinder's own code only.
 
-This file and `LICENSE-Apache-2.0.txt` ship inside `vmdpathfinder/` so that the
-licence text travels with the code it covers.
+This file, `LICENSE-Apache-2.0.txt` and `LICENSE-MIT-MOLE2.txt` ship inside
+`vmdpathfinder/` so that each licence text travels with the code it covers.
 
 ## HOLE 2 — Apache License 2.0
 
@@ -61,11 +62,45 @@ they are part of the upstream text, not because their terms apply.
 
 `rad/simple.rad` is HOLE 2's own radius file, unmodified.
 
-## MOLE 2 — reimplementation of a published method
+## MOLE 2 / WebChemistry — ported source, MIT License
 
-The tunnel engine reimplements the published method of MOLE 2 (Sehnal et al.
-2013; Pravda et al. 2018), validated against MOLE 2's own exported results. No
-MOLE source code is included.
+- Upstream: <https://github.com/sb-ncbr/MOLE> (`WebChemistry.Tunnels.Core`) and
+  `WebChemistry.Framework.Core`
+- Licence text: `LICENSE-MIT-MOLE2.txt` (also at `native/mole/LICENSE-MIT-MOLE2.txt`)
+- Cite: Sehnal, D.; Svobodová Vařeková, R.; Berka, K.; Pravda, L.; Navrátilová, V.;
+  Banáš, P.; Ionescu, C.-M.; Otyepka, M.; Koča, J. *MOLE 2.0: Advanced Approach for
+  Analysis of Biomacromolecular Channels.* J. Cheminform. **5**, 39 (2013); and
+  Pravda, L. et al. *MOLEonline.* Nucleic Acids Res. **46**, W368–W373 (2018).
+
+```
+MIT License
+
+Copyright (c) 2024 Structural bioinformatics research group at National Centre for
+Biomolecular Research
+```
+
+### What is derived, and how
+
+Tunnel mode is a **port** of MOLE 2, not an independent reimplementation from the
+method papers. It was written by following the MIT-licensed
+`WebChemistry.Tunnels.Core` and `WebChemistry.Framework.Core` **source**, which
+disagrees with the two published papers in several places; where the two differ, the
+source was followed, and those divergences are recorded in `NOTES/mole2-*.md`.
+
+The port exists twice, both derived works:
+
+- `native/mole/*.c` — the compiled tunnel engine (`mole_complex.c`, `mole_tunnel.c`,
+  `mole_dh.c`, `mole_lining.c` and their headers).
+- The inlined pure-Tcl tunnel engine in `vmdpathfinder.tcl`, a Tcl counterpart of the
+  same routines.
+
+It is a translation into C and Tcl, restructured around this plugin's own data
+structures and I/O; **no MOLE 2 or WebChemistry source file is redistributed** in this
+repository, and no MOLE 2 binary is included. The MIT notice above is reproduced because
+the MIT licence requires it to travel with derived works.
+
+Numerical agreement with MOLE 2's own exported results is reported in the Supporting
+Information; agreement is evidence the port is faithful, not evidence of independence.
 
 ## CAVER — cross-snapshot clustering method
 

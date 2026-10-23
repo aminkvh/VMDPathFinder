@@ -89,7 +89,8 @@ else
   tn=$(cd "$REL" && find . -type f | wc -l)
   if [ "$zn" -eq "$tn" ]; then ok "the ZIP has every staged file ($zn)"
   else bad "ZIP has $zn file(s), the staged build has $tn - run packaging/make_zip.sh"; fi
-  for must in VMDPathFinder/vmdpathfinder/NOTICE.md VMDPathFinder/vmdpathfinder/LICENSE-Apache-2.0.txt; do
+  for must in VMDPathFinder/vmdpathfinder/NOTICE.md VMDPathFinder/vmdpathfinder/LICENSE-Apache-2.0.txt \
+              VMDPathFinder/vmdpathfinder/LICENSE-MIT-MOLE2.txt; do
     if unzip -l "$ZIP" 2>/dev/null | grep -q "$must"; then ok "ZIP carries $(basename "$must")"
     else bad "ZIP is missing $must - the Apache notice must travel with the code"; fi
   done

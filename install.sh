@@ -79,7 +79,7 @@ mkdir -p "$DEST/vmdpathfinder"
 # Only what VMD loads: the plugin package, its licence/notice, and the binaries.
 cp "$SRC/vmdpathfinder/vmdpathfinder.tcl"  "$DEST/vmdpathfinder/"
 cp "$SRC/vmdpathfinder/pkgIndex.tcl" "$DEST/vmdpathfinder/"
-for f in NOTICE.md LICENSE-Apache-2.0.txt; do
+for f in NOTICE.md LICENSE-Apache-2.0.txt LICENSE-MIT-MOLE2.txt; do
     [ -f "$SRC/vmdpathfinder/$f" ] && cp "$SRC/vmdpathfinder/$f" "$DEST/vmdpathfinder/"
 done
 # radius files the plugin ships (Martini 2 and 3 beads; HOLE's simple.rad)
