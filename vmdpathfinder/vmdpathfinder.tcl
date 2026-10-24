@@ -48506,12 +48506,27 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     return [list $med $qm [expr {$qm > 1.0}]]
 }
 
+proc ::VMDPathFinder::_ion_flow_resolution_level {d} {
+    # ok / caution / warning from the median in-pore step / local radius. Thinning a
+    # 40-ps KcsA run (results/mironenko_stride_resolution.csv): counts exact up to a
+    # ratio of 0.73, a few events lost from 0.85, half lost at 1.25.
+    if {![dict exists $d step_ratio] || ![string is double -strict [dict get $d step_ratio]]} { return ok }
+    set q [dict get $d step_ratio]
+    if {$q > 1.0} { return warning }
+    if {$q > 0.7} { return caution }
+    return ok
+}
+
 proc ::VMDPathFinder::_ion_flow_resolution_note {d} {
-    # Header warning when frames are too far apart to resolve crossings; "" otherwise.
-    if {![dict exists $d unresolved] || ![dict get $d unresolved]} { return "" }
-    return [format "\u26a0 frames too far apart to resolve crossings: molecules move a median %.1f \u00c5\
-        between frames inside the pore, %.1f\u00d7 the local pore radius - counts are not translocations" \
-        [dict get $d step_med] [dict get $d step_ratio]]
+    # Log/CSV line when frames may be too far apart to resolve crossings; "" otherwise.
+    switch -- [_ion_flow_resolution_level $d] {
+        warning { set lead "WARNING: frames too far apart to resolve crossings" }
+        caution { set lead "Caution: frame spacing is marginal for counting crossings" }
+        default { return "" }
+    }
+    return [format "Ion & Water: %s - molecules move a median %.2f \u00c5 between frames inside the\
+        pore, %.2f\u00d7 the local pore radius (counts reliable below 0.7, unreliable above 1)" \
+        $lead [dict get $d step_med] [dict get $d step_ratio]]
 }
 
 proc ::VMDPathFinder::_ion_flow_refilter {args} {
@@ -48526,6 +48541,10 @@ proc ::VMDPathFinder::_ion_flow_refilter {args} {
         $state(ion_flow_species) : "__all__"}]
     set ion_flow_cache [_ion_flow_aggregate $ion_flow_raw $species \
         [_ion_flow_resolve_rcut $ion_flow_raw] 36 90]
+    set _rn [_ion_flow_resolution_note $ion_flow_cache]
+    if {$_rn ne ""} {
+        _note $_rn [expr {[_ion_flow_resolution_level $ion_flow_cache] eq "warning" ? "warn" : "info"}]
+    }
     draw_ion_flow_tab
 }
 
@@ -49237,7 +49256,6 @@ proc ::VMDPathFinder::_draw_ion_flow_occupancy {} {
               [dict get $d nused] frames)" {Helvetica 10 bold} black] \
         [list [format "arrows = mean displacement   \u00b7   crossings of the constriction plane (z = %.1f \u00c5, within %.1f \u00c5 of the surface): up %d  down %d  net %d%s" \
               [dict get $d zc] [_ion_flow_passage_shell] $up $down $net [_ion_flow_rcut_note $d]] {Helvetica 8} "#333333"] \
-        [list [_ion_flow_resolution_note $d] {Helvetica 8 bold} "#b00000"] \
         [list $_wallkey {Helvetica 8} "#2b2b2b"]]]
     set mt [expr {$_hy+6}]
     set ph [expr {$H-$mt-$mb}]
@@ -49509,8 +49527,7 @@ proc ::VMDPathFinder::_draw_ion_passage_view {} {
     }]
     set _hy [_plot_header $cv [expr {$ml+$pw/2}] $pw [list \
         [list "Passage - $_sp_sel (${_shown}$n_cross crossed: $_nu ↑ $_nd ↓;\
-              $n_entered/[dict get $d nions] entered)[_ion_flow_rpass_note $d]" {Helvetica 10 bold} black] \
-        [list [_ion_flow_resolution_note $d] {Helvetica 8 bold} "#b00000"]]]
+              $n_entered/[dict get $d nions] entered)[_ion_flow_rpass_note $d]" {Helvetica 10 bold} black]]]
     # The legend row is drawn later, by update_ion_passage_indicator, because
     # its per-species counts follow the current frame - so its line is reserved
     # here rather than measured.
@@ -49881,7 +49898,9 @@ proc ::VMDPathFinder::export_ion_flow_csv {} {
     set _sp [expr {[dict exists $d species] ? [dict get $d species] : "All"}]
     puts $fh "# ion-flow R-Z grid; species=$_sp ions=[dict get $d nions] frames=[dict get $d nused] zc=[format %.3f [dict get $d zc]] flux_up=[dict get $d up] flux_down=[dict get $d down] flux_net=[dict get $d net]"
     if {[dict exists $d step_med] && [dict get $d step_med] ne ""} {
-        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}]"
+        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}], resolution=[_ion_flow_resolution_level $d]"
+        set _rn [_ion_flow_resolution_note $d]
+        if {$_rn ne ""} { puts $fh "# $_rn" }
     }
     # count = raw ion-observation tally in the cell; occupancy_pct = % of sampled frames with
     # >=1 ion in the cell (the plot's primary metric); number_density = count / cylindrical
