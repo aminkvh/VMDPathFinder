@@ -1,0 +1,12 @@
+# stride_resolution_test.py  top=/media/amin/10TB_2/WORK/vpf_review_tmp/traj_search/mironenko/E71A/CHARMM36m/e71a_charmm36m.gro  traj=/media/amin/10TB_2/WORK/mironenko_data/ExampleTrajectories/E71A.CHARMM36m.K.xtc  frames=25001  dt=40.0 ps
+# ratio = median |dz| of K+ in the filter at both ends of a kept step / max(1 A, filter half-width proxy 1 A)
+stride,spacing_ps,frames,events_up,ratio
+1,40,25001,51,0.490
+2,80,12501,51,0.520
+5,200,5001,51,0.590
+10,400,2501,51,0.650
+25,1000,1001,51,0.730
+50,2000,501,49,0.880
+60,2400,417,49,0.845
+100,4000,251,48,1.100
+250,10000,101,23,1.245
