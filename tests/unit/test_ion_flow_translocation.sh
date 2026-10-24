@@ -15,7 +15,13 @@ OUT=$(tclsh <<TCLEOF 2>&1
 namespace eval ::VMDPathFinder {}
 $(awk '/^proc ::VMDPathFinder::_ion_flow_visit_dir /,/^}/' "$TCL")
 $(awk '/^proc ::VMDPathFinder::_ion_flow_window_from_fields /,/^}/' "$TCL")
+$(awk '/^proc ::VMDPathFinder::_ion_flow_plane_label /,/^}/' "$TCL")
 namespace eval ::VMDPathFinder {
+    variable state
+    set state(ion_flow_window) {}
+    puts "PL0 [_ion_flow_plane_label]"
+    set state(ion_flow_window) {8 51.8 60.7 56.3}
+    puts "PL1 [_ion_flow_plane_label]"
     puts "DIR [_ion_flow_visit_dir below above] [_ion_flow_visit_dir above below] [_ion_flow_visit_dir below below] [_ion_flow_visit_dir below inside] [_ion_flow_visit_dir {} above]"
     puts "W1 [_ion_flow_window_from_fields set 3 -6 8 1]"
     puts "W2 [_ion_flow_window_from_fields set 3 8 -6 {}]"
@@ -30,5 +36,7 @@ line() { printf '%s\n' "$OUT" | grep "^$1 " | head -1; }
 [ "$(line W2)" = "W2 3 -6 8" ] && ok "reversed ends are swapped; blank plane = narrowest point" || bad "w2: $(line W2)"
 [ "$(line W3)" = "W3 []" ] && ok "Auto clears the window" || bad "w3: $(line W3)"
 [ "$(line W4)" = "W4 [] [] []" ] && ok "zero radius, non-numeric or equal ends are rejected" || bad "w4: $(line W4)"
+[ "$(line PL0)" = "PL0 constriction" ] && ok "Auto: the plane is the constriction" || bad "pl0: $(line PL0) $OUT"
+[ "$(line PL1)" = "PL1 crossing plane" ] && ok "a set window labels its plane as the crossing plane" || bad "pl1: $(line PL1)"
 echo "  -> $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -48555,6 +48555,13 @@ proc ::VMDPathFinder::_ion_flow_close_visit {} {
     set vin 0
 }
 
+proc ::VMDPathFinder::_ion_flow_plane_label {} {
+    # A set window's plane is wherever the user put it, not the constriction.
+    variable state
+    if {[info exists state(ion_flow_window)] && [llength $state(ion_flow_window)] >= 3} { return "crossing plane" }
+    return "constriction"
+}
+
 proc ::VMDPathFinder::_ion_flow_window_label {} {
     # Where the crossing window is, for the plot header.
     variable state
@@ -49595,7 +49602,7 @@ proc ::VMDPathFinder::_draw_ion_flow_occupancy {} {
     lassign [_ionflow_xy 0     $zc $rcut $zmin $zspan $ml $mt $pw $ph $swap $flipz] c0x c0y
     lassign [_ionflow_xy $rcut $zc $rcut $zmin $zspan $ml $mt $pw $ph $swap $flipz] c1x c1y
     $cv create line $c0x $c0y $c1x $c1y -fill "#0066cc" -dash {5 3}
-    $cv create text [expr {($c0x+$c1x)/2}] [expr {($c0y+$c1y)/2-6}] -text "constriction" -anchor s -font {Helvetica 7} -fill "#0066cc"
+    $cv create text [expr {($c0x+$c1x)/2}] [expr {($c0y+$c1y)/2-6}] -text [_ion_flow_plane_label] -anchor s -font {Helvetica 7} -fill "#0066cc"
     # --- plot box, ticks, axis labels ---
     $cv create rectangle $ml $mt [expr {$ml+$pw}] [expr {$mt+$ph}] -outline "#999999"
     for {set k 0} {$k <= 4} {incr k} {
@@ -49787,7 +49794,7 @@ proc ::VMDPathFinder::_draw_ion_passage_view {} {
     # --- constriction plane, bulk boundaries, axes ---
     set yc [_ipv_y $zc $zmin $zspan $mt $ph]
     $cv create line $ml $yc [expr {$ml+$pw}] $yc -fill "#0066cc" -dash {5 3}
-    $cv create text [expr {$ml+$pw-2}] [expr {$yc-2}] -text "constriction" -anchor se -font {Helvetica 7} -fill "#0066cc"
+    $cv create text [expr {$ml+$pw-2}] [expr {$yc-2}] -text [_ion_flow_plane_label] -anchor se -font {Helvetica 7} -fill "#0066cc"
     if {[dict exists $d bulk_lo] && [dict exists $d bulk_hi] && \
         [string is double -strict [dict get $d bulk_lo]] && [string is double -strict [dict get $d bulk_hi]]} {
         foreach {zb anch} [list [dict get $d bulk_lo] sw [dict get $d bulk_hi] nw] {
