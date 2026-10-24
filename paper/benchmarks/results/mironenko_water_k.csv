@@ -1,0 +1,14 @@
+# count_water_k_mironenko.py: authors' 4-region rule (Mironenko et al. 2024 count-ion-permeation.py) applied to K+ and water O
+trajectory,species,definition,n_molecules,frames,t_ns,up,down,net
+E71A,K,authors_rule,163,25001,1000.00,51,0,51
+E71A,K,authors_rule_r<5,163,25001,1000.00,51,0,51
+E71A,water,authors_rule,11257,25001,1000.00,11,63,-52
+E71A,water,authors_rule_r<5,11257,25001,1000.00,0,0,0
+T75A/E71A,K,authors_rule,163,25001,1000.00,2,0,2
+T75A/E71A,K,authors_rule_r<5,163,25001,1000.00,2,0,2
+T75A/E71A,water,authors_rule,11257,25001,1000.00,14,38,-24
+T75A/E71A,water,authors_rule_r<5,11257,25001,1000.00,1,0,1
+G77A/E71A,K,authors_rule,134,50001,2000.00,5,0,5
+G77A/E71A,K,authors_rule_r<5,134,50001,2000.00,5,0,5
+G77A/E71A,water,authors_rule,9315,50001,2000.00,50,114,-64
+G77A/E71A,water,authors_rule_r<5,9315,50001,2000.00,9,8,1
