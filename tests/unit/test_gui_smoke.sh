@@ -632,6 +632,25 @@ run_section molid      "$T/s3.tcl"
 run_section tunnel-opts "$T/s4.tcl"
 run_section config-fields "$T/s5.tcl"
 run_section memory-slots "$T/s6.tcl"
+cat > "$T/s7.tcl" <<'S7_EOF'
+# Ion & Water gear: crossing-window fields write state(ion_flow_window); Auto clears it.
+set ::VMDPathFinder::state(ion_flow_window) {}
+::VMDPathFinder::show_ion_flow_settings; update
+set d $::VMDPathFinder::w.ionflowcfg
+set have [expr {[winfo exists $d.cwm.a] && [winfo exists $d.ewin_R] && [winfo exists $d.ewin_zc] && [winfo exists $d.cwc]}]
+puts "XWIN widgets [expr {$have ? {OK} : {BAD}}]"
+puts "XWIN opens Auto: $::VMDPathFinder::state(ion_flow_win_mode) [expr {$::VMDPathFinder::state(ion_flow_win_mode) eq {auto} ? {OK} : {BAD}}]"
+foreach {k v} {win_mode set win_R 3 win_lo 8 win_hi -6 win_zc 1} { set ::VMDPathFinder::state(ion_flow_$k) $v }
+::VMDPathFinder::_ion_flow_window_apply
+puts "XWIN set: {$::VMDPathFinder::state(ion_flow_window)} [expr {$::VMDPathFinder::state(ion_flow_window) eq {3 -6 8 1} ? {OK} : {BAD}}]"
+destroy $d
+::VMDPathFinder::show_ion_flow_settings; update
+puts "XWIN reopens with the fields: $::VMDPathFinder::state(ion_flow_win_mode) $::VMDPathFinder::state(ion_flow_win_lo) [expr {$::VMDPathFinder::state(ion_flow_win_mode) eq {set} && $::VMDPathFinder::state(ion_flow_win_lo) == -6 ? {OK} : {BAD}}]"
+set ::VMDPathFinder::state(ion_flow_win_mode) auto
+::VMDPathFinder::_ion_flow_window_apply
+puts "XWIN Auto clears: {$::VMDPathFinder::state(ion_flow_window)} [expr {$::VMDPathFinder::state(ion_flow_window) eq {} ? {OK} : {BAD}}]"
+S7_EOF
+run_section crossing-window "$T/s7.tcl"
 
 echo "  -> $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

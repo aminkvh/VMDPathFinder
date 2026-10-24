@@ -800,6 +800,12 @@ namespace eval ::VMDPathFinder:: {
         ion_flow_shell 3.0
         ion_flow_passage_shell 0.5
         ion_flow_window {}
+        ion_flow_win_mode auto
+        ion_flow_win_R {}
+        ion_flow_win_lo {}
+        ion_flow_win_hi {}
+        ion_flow_win_zc {}
+        show_crossing_cue 1
         ion_flow_stride 1
         ion_flow_species __all__
         ion_flow_species_disp {All}
@@ -48316,6 +48322,9 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
     array set _cntsp {}
     set _sp_seen {}
     set n_cross_up 0; set n_cross_down 0
+    set tr_up 0; set tr_down 0; set tr_incomplete 0
+    set tr_recross 0
+    if {$_win ne ""} { set _twlo $_wlo; set _twhi $_whi } else { set _twlo $zmin; set _twhi $zmax }
     set _steps {}
     set species_water [expr {$species eq "Water"}]
     set _gapb [_ion_flow_gap_bridge]
@@ -48331,12 +48340,14 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         set d3s [expr {[dict exists $tr d3] ? [dict get $tr d3] : {}}]
         set d_z {}; set d_r {}; set d_f {}   ;# in-membership samples for the passage plot / CSV
         set _tr_up 0; set _tr_down 0          ;# filled from the drawn samples below
+        set _tr_tup 0; set _tr_tdown 0        ;# complete translocations of this molecule
         # Walked with a parallel foreach and carried-over previous sample rather
         # than an index: this is the hot loop of the whole tab (one iteration per
         # molecule per frame it was seen), and indexed access re-walked four
         # lists per sample. A short d3 list pads with "" here exactly as the
         # length test it replaces did.
         set _pf ""; set _pz 0.0; set _pR 0.0
+        set _vin 0; set _vfl 0; set _vpre ""; set _vpost ""; set _lastout ""
         foreach z $zs R $rs f $fs _d3v $d3s {
             # Membership against the real per-frame union-of-spheres surface (`d3`,
             # precomputed in _ion_flow_scan - see _ion_flow_min_surf_dist), not R vs.
@@ -48365,6 +48376,21 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
                 }
             }
             if {$in_pass} { lappend d_z $z; lappend d_r $R; lappend d_f $f }
+            # Translocation (count_permeation_independent.py's definition): a visit is
+            # a run of in-pass samples, gaps up to the gap bridge allowed; the side of
+            # the window ends (below / above / inside = left sideways) on the last
+            # out-of-pass sample before it and the first after it decide: opposite =
+            # translocation, same = recrossing, missing or inside = incomplete.
+            set _sd [expr {$z < $_twlo ? "below" : ($z > $_twhi ? "above" : "inside")}]
+            if {$in_pass} {
+                if {$_vin && $f-$_vfl > $_gapb} { _ion_flow_close_visit }
+                if {!$_vin} { set _vin 1; set _vpre $_lastout; set _vpost "" }
+                set _vfl $f; set _vpost ""
+            } else {
+                if {$_vin && $_vpost eq ""} { set _vpost $_sd }
+                if {$_vin && $f-$_vfl > $_gapb} { _ion_flow_close_visit }
+                set _lastout $_sd
+            }
             # flow + flux from consecutive ADJACENT-frame samples of THIS ion only. Skip a
             # |dz|>Lz/2 step: it is a periodic min-image flip (the ion crossed +-Lz/2), so
             # counting it would be a spurious flow vector AND a phantom constriction crossing.
@@ -48381,6 +48407,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
             }
             set _pf $f; set _pz $z; set _pR $R
         }
+        if {$_vin} { _ion_flow_close_visit }
         if {[llength $d_f] > 0} {
             # Count this molecule's constriction crossings on the samples that
             # are actually DRAWN, under the renderer's own segment rules, so
@@ -48411,7 +48438,8 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
             # counts, so they cannot disagree.
             incr up $_tr_up; incr down $_tr_down
             lappend out_traces [dict create idx [dict get $tr idx] species [dict get $tr species] \
-                z $d_z r $d_r frame $d_f ncross_up $_tr_up ncross_down $_tr_down]
+                z $d_z r $d_r frame $d_f ncross_up $_tr_up ncross_down $_tr_down \
+                ntrans_up $_tr_tup ntrans_down $_tr_tdown]
             if {$_tr_up > $_tr_down} { incr n_cross_up } elseif {$_tr_down > $_tr_up} { incr n_cross_down } \
             elseif {$_tr_up > 0} { incr n_cross_up; incr n_cross_down }
         }
@@ -48467,6 +48495,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         nions $_ncount noun [expr {$species_water ? "waters" : "ions"}] \
         count_per_frame $count_per_frame count_per_species $count_per_species \
         n_cross_up $n_cross_up n_cross_down $n_cross_down \
+        trans_up $tr_up trans_down $tr_down trans_net [expr {$tr_up-$tr_down}] trans_incomplete $tr_incomplete trans_recross $tr_recross \
         step_med $_step_med step_ratio $_step_ratio unresolved $_step_unres \
         nframes $nf nused $nf frame_lo $_f0 rmin_hole $rmin_hole rmax_hole [dict get $raw rmax_hole] \
         species $species_label traces $out_traces stride 1 protein_wrapped [dict get $raw protein_wrapped] box_lz $box_lz \
@@ -48504,6 +48533,50 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     set med [lindex [lsort -real $d] $h]
     set qm [lindex [lsort -real $q] $h]
     return [list $med $qm [expr {$qm > 1.0}]]
+}
+
+proc ::VMDPathFinder::_ion_flow_visit_dir {pre post} {
+    # up / down / recross / incomplete from the sides before and after one visit.
+    if {$pre ni {below above} || $post ni {below above}} { return incomplete }
+    if {$pre eq $post} { return recross }
+    return [expr {$pre eq "below" ? "up" : "down"}]
+}
+
+proc ::VMDPathFinder::_ion_flow_close_visit {} {
+    # Close the caller's open visit (_ion_flow_aggregate's loop variables).
+    upvar 1 _vin vin _vpre pre _vpost post tr_up up tr_down dn tr_incomplete inc \
+        tr_recross rc _tr_tup tup _tr_tdown tdn
+    switch -- [_ion_flow_visit_dir $pre $post] {
+        up { incr up; incr tup }
+        down { incr dn; incr tdn }
+        recross { incr rc }
+        incomplete { incr inc }
+    }
+    set vin 0
+}
+
+proc ::VMDPathFinder::_ion_flow_window_label {} {
+    # Where the crossing window is, for the plot header.
+    variable state
+    set wv [expr {[info exists state(ion_flow_window)] ? [string trim $state(ion_flow_window)] : ""}]
+    if {[llength $wv] in {3 4}} {
+        lassign $wv R lo hi
+        return [format "window R<%.1f \u00c5, z %.1f..%.1f \u00c5" $R $lo $hi]
+    }
+    return [format "within %.1f \u00c5 of the surface" [_ion_flow_passage_shell]]
+}
+
+proc ::VMDPathFinder::_ion_flow_trans_label {d} {
+    # Complete translocations: entered the window on one side of the plane, left on the other.
+    variable state
+    if {![dict exists $d trans_up]} { return "" }
+    # Auto has no window ends to enter and leave by: filter ions drop in and out of the
+    # surface shell, and on KcsA E71A it gave ~3000 "translocations" each way vs 51 / 0.
+    if {[llength [expr {[info exists state(ion_flow_window)] ? $state(ion_flow_window) : ""}]] ni {3 4}} {
+        return "translocations: set a crossing window (\u2699 Ion & Water settings) to count ions that pass all the way through"
+    }
+    return [format "translocations (in one end of the window, out the other): up %d  down %d  net %d   \u00b7   returned %d   \u00b7   unresolved %d" \
+        [dict get $d trans_up] [dict get $d trans_down] [dict get $d trans_net] [dict get $d trans_recross] [dict get $d trans_incomplete]]
 }
 
 proc ::VMDPathFinder::_ion_flow_resolution_level {d} {
@@ -48596,8 +48669,126 @@ proc ::VMDPathFinder::show_ion_flow_settings {} {
     checkbutton $d.flpz -text "flip Z" -variable ::VMDPathFinder::state(ion_flow_flip_z) \
         -command ::VMDPathFinder::draw_ion_flow_tab
     grid $d.flpz -row $row -column 0 -columnspan 2 -sticky w -padx 10 -pady 3; incr row
+    # Crossing window: Auto = surface shell + mean-profile constriction; Set = explicit
+    # R / z range / plane on the displayed axis (state(ion_flow_window)).
+    _ion_flow_window_to_fields
+    label $d.cwl -text "Crossing window" -font {Helvetica 9 bold} -anchor w
+    grid $d.cwl -row $row -column 0 -columnspan 2 -sticky w -padx 10 -pady {8 2}; incr row
+    frame $d.cwm
+    radiobutton $d.cwm.a -text "Auto (narrowest point)" -value auto \
+        -variable ::VMDPathFinder::state(ion_flow_win_mode) -command ::VMDPathFinder::_ion_flow_window_apply
+    radiobutton $d.cwm.s -text "Set" -value set \
+        -variable ::VMDPathFinder::state(ion_flow_win_mode) -command ::VMDPathFinder::_ion_flow_window_apply
+    pack $d.cwm.a $d.cwm.s -side left
+    grid $d.cwm -row $row -column 0 -columnspan 2 -sticky w -padx 10; incr row
+    foreach {k lab tip} {
+        win_R  "R (Å)"        "Radial limit from the pore axis."
+        win_lo "z from (Å)"   "Lower end of the window on the plot's axis. An ion must enter at one end and leave by the other to count as a translocation."
+        win_hi "z to (Å)"     "Upper end of the window on the plot's axis."
+        win_zc "Plane z (Å)"  "Plane that decides which side an ion entered and left from. Blank = mean-profile narrowest point."
+    } {
+        label $d.l$k -text $lab -anchor w
+        entry $d.e$k -width 8 -textvariable ::VMDPathFinder::state(ion_flow_$k)
+        grid $d.l$k -row $row -column 0 -sticky w -padx {20 6} -pady 1
+        grid $d.e$k -row $row -column 1 -sticky w -padx {0 10} -pady 1; incr row
+        bind $d.e$k <Return>   {catch {::VMDPathFinder::_ion_flow_window_apply}}
+        bind $d.e$k <FocusOut> {catch {::VMDPathFinder::_ion_flow_window_apply}}
+        add_tooltip $d.e$k $tip
+    }
+    checkbutton $d.cwc -text "Show in 3D" -variable ::VMDPathFinder::state(show_crossing_cue) \
+        -command ::VMDPathFinder::_sync_crossing_cue
+    grid $d.cwc -row $row -column 0 -columnspan 2 -sticky w -padx 10 -pady 3; incr row
+    add_tooltip $d.cwc "Draw the crossing plane (disc) and the window ends (rings) in the 3D view."
     grid [_settings_btn_row $d ::VMDPathFinder::_ion_flow_refilter] -row $row -column 0 -columnspan 2 -sticky w -padx 8 -pady {8 10}
     _center_toplevel $d
+}
+
+proc ::VMDPathFinder::_ion_flow_window_to_fields {} {
+    # state(ion_flow_window) "R lo hi ?zc?" -> the gear's fields; "" -> Auto.
+    variable state
+    set wv [expr {[info exists state(ion_flow_window)] ? [string trim $state(ion_flow_window)] : ""}]
+    if {[llength $wv] in {3 4}} {
+        set state(ion_flow_win_mode) set
+        lassign $wv state(ion_flow_win_R) state(ion_flow_win_lo) state(ion_flow_win_hi) state(ion_flow_win_zc)
+    } else {
+        set state(ion_flow_win_mode) auto
+    }
+}
+
+proc ::VMDPathFinder::_ion_flow_window_from_fields {mode R lo hi zc} {
+    # The gear's fields -> state(ion_flow_window); "" for Auto or any unusable field.
+    if {$mode ne "set"} { return "" }
+    foreach v [list $R $lo $hi] { if {![string is double -strict $v]} { return "" } }
+    if {$R <= 0 || $lo == $hi} { return "" }
+    if {$lo > $hi} { set t $lo; set lo $hi; set hi $t }
+    set out [list $R $lo $hi]
+    if {[string is double -strict $zc]} { lappend out $zc }
+    return $out
+}
+
+proc ::VMDPathFinder::_ion_flow_window_apply {args} {
+    variable state
+    foreach k {win_R win_lo win_hi win_zc} {
+        if {![info exists state(ion_flow_$k)]} { set state(ion_flow_$k) "" }
+    }
+    set wv [_ion_flow_window_from_fields $state(ion_flow_win_mode) \
+        [string trim $state(ion_flow_win_R)] [string trim $state(ion_flow_win_lo)] \
+        [string trim $state(ion_flow_win_hi)] [string trim $state(ion_flow_win_zc)]]
+    if {$state(ion_flow_win_mode) eq "set" && $wv eq ""} {
+        _note "Ion & Water: crossing window needs numeric R > 0 and two different z ends - using Auto" warn
+    }
+    set state(ion_flow_window) $wv
+    catch {_ion_flow_refilter}
+    catch {_sync_crossing_cue}
+}
+
+proc ::VMDPathFinder::_sync_crossing_cue {args} {
+    # Crossing plane (translucent disc) and window ends (rings) in 3D, on a marker
+    # molecule of its own, like the CPOINT cue. Needs a Compute (axis + origin).
+    variable state
+    variable ion_flow_raw
+    variable ion_flow_cache
+    variable crossing_cue_mol
+    if {![_have_tk]} { return }
+    if {![info exists crossing_cue_mol]} { set crossing_cue_mol "" }
+    set want [expr {[info exists state(show_crossing_cue)] && $state(show_crossing_cue) \
+        && [info exists ion_flow_raw] && $ion_flow_raw ne "" \
+        && [info exists ion_flow_cache] && $ion_flow_cache ne ""}]
+    if {!$want} {
+        if {$crossing_cue_mol ne "" && ![catch {molinfo $crossing_cue_mol get name}]} {
+            catch {mol delete $crossing_cue_mol}
+        }
+        set crossing_cue_mol ""
+        return
+    }
+    set ax [dict get $ion_flow_raw axis]; set org [dict get $ion_flow_raw origin]
+    set coff [expr {[dict exists $ion_flow_raw coord_offset] ? [dict get $ion_flow_raw coord_offset] : 0.0}]
+    set zc [dict get $ion_flow_cache zc]
+    set R [expr {[dict exists $ion_flow_cache r_cut] ? [dict get $ion_flow_cache r_cut] : 8.0}]
+    set ends {}
+    set wv [expr {[info exists state(ion_flow_window)] ? $state(ion_flow_window) : ""}]
+    if {[llength $wv] in {3 4}} { lassign $wv R lo hi; set ends [list $lo $hi] }
+    if {$crossing_cue_mol eq "" || [catch {molinfo $crossing_cue_mol get name}]} {
+        set _top [molinfo top]
+        set ref [dict get $ion_flow_raw molid]
+        set crossing_cue_mol [mol new]
+        catch {mol rename $crossing_cue_mol "VMDPathFinder: crossing window"}
+        catch {sync_surface_view $crossing_cue_mol $ref}
+        catch {mol top $_top}
+    }
+    set m $crossing_cue_mol
+    catch {graphics $m delete all}
+    graphics $m material Transparent
+    graphics $m color orange
+    set p [vecadd $org [vecscale [expr {$zc-$coff}] $ax]]
+    graphics $m cylinder [vecsub $p [vecscale 0.05 $ax]] [vecadd $p [vecscale 0.05 $ax]] \
+        radius $R resolution 48 filled yes
+    graphics $m material Opaque
+    foreach s $ends {
+        set q [vecadd $org [vecscale [expr {$s-$coff}] $ax]]
+        graphics $m cylinder [vecsub $q [vecscale 0.15 $ax]] [vecadd $q [vecscale 0.15 $ax]] \
+            radius $R resolution 48 filled no
+    }
 }
 
 proc ::VMDPathFinder::_select_ion_species {name} {
@@ -48940,6 +49131,7 @@ proc ::VMDPathFinder::draw_ion_flow_tab {} {
     set cv $w.plotframe.nb.ionflow.cv
     # Headless guard - see _have_tk.
     if {![_have_tk]} { return }
+    catch {_sync_crossing_cue}
     if {![winfo exists $cv]} { return }
     # Re-assert which bar controls apply to the current cache state HERE, because
     # this is the one proc every path reaches (compute -> _ion_flow_refilter ->
@@ -49254,8 +49446,9 @@ proc ::VMDPathFinder::_draw_ion_flow_occupancy {} {
     set _hy [_plot_header $cv [expr {$ml+$pw/2}] $pw [list \
         [list "Occupancy + flow \u2014 $_splabel  ([dict get $d nions] [_ion_flow_noun $d],\
               [dict get $d nused] frames)" {Helvetica 10 bold} black] \
-        [list [format "arrows = mean displacement   \u00b7   crossings of the constriction plane (z = %.1f \u00c5, within %.1f \u00c5 of the surface): up %d  down %d  net %d%s" \
-              [dict get $d zc] [_ion_flow_passage_shell] $up $down $net [_ion_flow_rcut_note $d]] {Helvetica 8} "#333333"] \
+        [list [format "arrows = mean displacement   \u00b7   net plane flux at z = %.1f \u00c5 (%s): up %d  down %d  net %d%s" \
+              [dict get $d zc] [_ion_flow_window_label] $up $down $net [_ion_flow_rcut_note $d]] {Helvetica 8} "#333333"] \
+        [list [_ion_flow_trans_label $d] {Helvetica 8 bold} "#333333"] \
         [list $_wallkey {Helvetica 8} "#2b2b2b"]]]
     set mt [expr {$_hy+6}]
     set ph [expr {$H-$mt-$mb}]
@@ -49897,6 +50090,9 @@ proc ::VMDPathFinder::export_ion_flow_csv {} {
     set fh [open $fn w]
     set _sp [expr {[dict exists $d species] ? [dict get $d species] : "All"}]
     puts $fh "# ion-flow R-Z grid; species=$_sp ions=[dict get $d nions] frames=[dict get $d nused] zc=[format %.3f [dict get $d zc]] flux_up=[dict get $d up] flux_down=[dict get $d down] flux_net=[dict get $d net]"
+    if {[dict exists $d trans_up] && [llength $state(ion_flow_window)] in {3 4}} {
+        puts $fh "# translocations (window: [_ion_flow_window_label]): up=[dict get $d trans_up] down=[dict get $d trans_down] net=[dict get $d trans_net] returned=[dict get $d trans_recross] unresolved=[dict get $d trans_incomplete]"
+    }
     if {[dict exists $d step_med] && [dict get $d step_med] ne ""} {
         puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}], resolution=[_ion_flow_resolution_level $d]"
         set _rn [_ion_flow_resolution_note $d]
