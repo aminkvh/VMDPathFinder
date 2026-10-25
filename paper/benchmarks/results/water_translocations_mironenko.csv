@@ -6,12 +6,16 @@
 # window: R < 5 A, z between the mean z of backbone C of residues 75 and 78 in frame 0 (tpr numbering 50 146 242 338 / 53 149 245 341), plane at the midpoint.
 # translocation: entry/exit side from the frames just before/after the visit, gaps up to 3 frames bridged.
 # plugin z is placed at the nearest HOLE-analysed frame (every 250 / 500 frames); the independent script uses every frame's protein centre.
-#   Translocations agree exactly; returned/unresolved visits do not (they sit on the window ends).
+#   Translocations agree exactly; returned/unresolved visits depend on that placement (they sit on the window ends):
+#   with HOLE on every frame (plugin_every_frame, T75A/E71A; frame 0 duplicated by the PDB) they come within 1-2 %.
+#   The plugin's step/radius ratio also moved with the HOLE stride (0.27 at every 250th frame, 0.49 every frame) - open item.
 mutant,species,implementation,up,down,returned,unresolved
 T75A/E71A,K,plugin,2,0,374,4
 T75A/E71A,K,independent,2,0,548,4
 T75A/E71A,water,plugin,1,0,491,10
 T75A/E71A,water,independent,1,0,910,6
+T75A/E71A,K,plugin_every_frame,2,0,545,4
+T75A/E71A,water,plugin_every_frame,1,0,899,5
 G77A/E71A,K,plugin,5,1,479,4
 G77A/E71A,K,independent,5,1,773,4
 G77A/E71A,water,plugin,7,0,2498,150
