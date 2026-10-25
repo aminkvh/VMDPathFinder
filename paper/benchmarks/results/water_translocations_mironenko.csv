@@ -1,0 +1,18 @@
+# generated_by: plugin = Ion & Water (_ion_flow_scan with water + _ion_flow_aggregate, water_T.tcl); independent = count_permeation_independent.py load_plane(lab=True) + count(gap=2)
+# utc: 2026-10-25
+# git: 8021fe1
+# data: Mironenko, de Groot & Kopec 2024 (Zenodo 12623504), CHARMM36m, +300 mV, 40 ps/frame; subsets protein + K+ (POT) + water O.
+#   T75A/E71A: t75ae71a_charmm36m.gro + xtc, 25001 frames. G77A/E71A: CHARMM36m 300mV/k production.tpr (49,670 atoms; the deposited .gro has 50,042) + xtc, 50001 frames.
+# window: R < 5 A, z between the mean z of backbone C of residues 75 and 78 in frame 0 (tpr numbering 50 146 242 338 / 53 149 245 341), plane at the midpoint.
+# translocation: entry/exit side from the frames just before/after the visit, gaps up to 3 frames bridged.
+# plugin z is placed at the nearest HOLE-analysed frame (every 250 / 500 frames); the independent script uses every frame's protein centre.
+#   Translocations agree exactly; returned/unresolved visits do not (they sit on the window ends).
+mutant,species,implementation,up,down,returned,unresolved
+T75A/E71A,K,plugin,2,0,374,4
+T75A/E71A,K,independent,2,0,548,4
+T75A/E71A,water,plugin,1,0,491,10
+T75A/E71A,water,independent,1,0,910,6
+G77A/E71A,K,plugin,5,1,479,4
+G77A/E71A,K,independent,5,1,773,4
+G77A/E71A,water,plugin,7,0,2498,150
+G77A/E71A,water,independent,7,0,4034,131
