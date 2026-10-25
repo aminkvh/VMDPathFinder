@@ -47449,6 +47449,10 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
     # matched against an opening. Without it a trace is (z, R) only and nothing
     # can say WHICH opening an ion sat in.
     for {set k 0} {$k < $nions} {incr k} { lappend tr_z {}; lappend tr_r {}; lappend tr_f {}; lappend tr_d3 {}; lappend tr_az {} }
+    # Edge samples: an ion's position on the frame just before it enters, and just after it
+    # leaves, the scan radius. Kept apart from the trace (nothing else reads them) so a
+    # translocation's entry and exit side is known even at coarse frame spacing.
+    array unset _ein; array unset _eprev; array unset _tre
     set pcom_prev {}; set npjump 0; set box_lz 0.0
     # Per-TRAJECTORY-frame axis DIRECTION (the origin below is already frame-local -
     # comx/comy/comz is the LIVE protein COM, remeasured every frame, so it already
@@ -47536,6 +47540,8 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
                                       $qx*$_e1x + $qy*$_e1y + $qz*$_e1z)}]
             }
             if {$R < $scan_r} {
+                if {[info exists _eprev($idx)] && [lindex $_eprev($idx) 0] == $f-1} { lappend _tre($idx) {*}$_eprev($idx) }
+                set _ein($idx) $f
                 lset tr_z $idx [linsert [lindex $tr_z $idx] end $z]
                 lset tr_r $idx [linsert [lindex $tr_r $idx] end $R]
                 lset tr_az $idx [linsert [lindex $tr_az $idx] end $_azv]
@@ -47543,6 +47549,9 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
                 set wx [expr {$comx+$rx}]; set wy [expr {$comy+$ry}]; set wz [expr {$comz+$rz}]
                 lset tr_d3 $idx [linsert [lindex $tr_d3 $idx] end \
                     [_ion_flow_min_surf_dist_indexed $wx $wy $wz $_cur_index]]
+            } else {
+                if {[info exists _ein($idx)] && $_ein($idx) == $f-1} { lappend _tre($idx) $f $z }
+                set _eprev($idx) [list $f $z]
             }
             incr idx
         }
@@ -47670,7 +47679,7 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
         set sp [expr {[dict exists $idx_species $ai] ? [dict get $idx_species $ai] : "?"}]
         lappend traces [dict create idx $ai species $sp \
             z [lindex $tr_z $k] r [lindex $tr_r $k] frame [lindex $tr_f $k] d3 [lindex $tr_d3 $k] \
-            az [lindex $tr_az $k]]
+            az [lindex $tr_az $k] edge [expr {[info exists _tre($k)] ? $_tre($k) : {}}]]
     }
     if {$_wsel_txt ne ""} {
         foreach _wi [lsort -integer [array names _w_f]] {
@@ -47731,6 +47740,11 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
                 set _zs {}
                 foreach _z [dict get $_t z] { lappend _zs [expr {$_z + $_coff}] }
                 dict set _t z $_zs
+            }
+            if {[dict exists $_t edge]} {
+                set _es {}
+                foreach {_ef _ez} [dict get $_t edge] { lappend _es $_ef [expr {$_ez + $_coff}] }
+                dict set _t edge $_es
             }
             lappend _tr2 $_t
         }
@@ -48347,7 +48361,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         # lists per sample. A short d3 list pads with "" here exactly as the
         # length test it replaces did.
         set _pf ""; set _pz 0.0; set _pR 0.0
-        set _vin 0; set _vfl 0; set _vpre ""; set _vpost ""; set _lastout ""
+        set _pfl {}   ;# in-window flag per sample, for the translocation count
         foreach z $zs R $rs f $fs _d3v $d3s {
             # Membership against the real per-frame union-of-spheres surface (`d3`,
             # precomputed in _ion_flow_scan - see _ion_flow_min_surf_dist), not R vs.
@@ -48376,21 +48390,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
                 }
             }
             if {$in_pass} { lappend d_z $z; lappend d_r $R; lappend d_f $f }
-            # Translocation (count_permeation_independent.py's definition): a visit is
-            # a run of in-pass samples, gaps up to the gap bridge allowed; the side of
-            # the window ends (below / above / inside = left sideways) on the last
-            # out-of-pass sample before it and the first after it decide: opposite =
-            # translocation, same = recrossing, missing or inside = incomplete.
-            set _sd [expr {$z < $_twlo ? "below" : ($z > $_twhi ? "above" : "inside")}]
-            if {$in_pass} {
-                if {$_vin && $f-$_vfl > $_gapb} { _ion_flow_close_visit }
-                if {!$_vin} { set _vin 1; set _vpre $_lastout; set _vpost "" }
-                set _vfl $f; set _vpost ""
-            } else {
-                if {$_vin && $_vpost eq ""} { set _vpost $_sd }
-                if {$_vin && $f-$_vfl > $_gapb} { _ion_flow_close_visit }
-                set _lastout $_sd
-            }
+            lappend _pfl $in_pass
             # flow + flux from consecutive ADJACENT-frame samples of THIS ion only. Skip a
             # |dz|>Lz/2 step: it is a periodic min-image flip (the ion crossed +-Lz/2), so
             # counting it would be a spurious flow vector AND a phantom constriction crossing.
@@ -48407,7 +48407,10 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
             }
             set _pf $f; set _pz $z; set _pR $R
         }
-        if {$_vin} { _ion_flow_close_visit }
+        lassign [_ion_flow_count_translocations $fs $zs $_pfl \
+            [expr {[dict exists $tr edge] ? [dict get $tr edge] : {}}] $_twlo $_twhi $_gapb] \
+            _tr_tup _tr_tdown _trc _tinc
+        incr tr_up $_tr_tup; incr tr_down $_tr_tdown; incr tr_recross $_trc; incr tr_incomplete $_tinc
         if {[llength $d_f] > 0} {
             # Count this molecule's constriction crossings on the samples that
             # are actually DRAWN, under the renderer's own segment rules, so
@@ -48535,24 +48538,50 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     return [list $med $qm [expr {$qm > 1.0}]]
 }
 
+proc ::VMDPathFinder::_ion_flow_count_translocations {fs zs inpass edge twlo twhi gapb} {
+    # Complete translocations of one molecule, by count_permeation_independent.py's rule: a
+    # visit is a run of in-window samples no more than gapb frames apart; its entry side is
+    # the sample on the frame just BEFORE it and its exit side the sample on the frame just
+    # AFTER it. `edge` (frame z ...) holds the samples the scan took just outside its radius,
+    # so a side is known even when the molecule left sideways at a coarse frame spacing.
+    # Returns {up down returned unresolved}.
+    array set zat {}
+    array set inp {}
+    foreach f $fs z $zs p $inpass { set zat($f) $z; set inp($f) $p }
+    foreach {f z} $edge {
+        if {![info exists zat($f)]} { set zat($f) $z; set inp($f) 0 }
+    }
+    set up 0; set dn 0; set rc 0; set inc 0
+    set start ""; set last ""
+    foreach f [concat [lsort -integer [array names zat]] END] {
+        if {$f ne "END" && !$inp($f)} { continue }
+        if {$start ne "" && ($f eq "END" || $f - $last > $gapb)} {
+            set side {}
+            foreach g [list [expr {$start - 1}] [expr {$last + 1}]] {
+                if {![info exists zat($g)]} { lappend side "" } else {
+                    lappend side [expr {$zat($g) < $twlo ? "below" : ($zat($g) > $twhi ? "above" : "inside")}]
+                }
+            }
+            switch -- [_ion_flow_visit_dir {*}$side] {
+                up      { incr up }
+                down    { incr dn }
+                recross { incr rc }
+                default { incr inc }
+            }
+            set start ""
+        }
+        if {$f eq "END"} { break }
+        if {$start eq ""} { set start $f }
+        set last $f
+    }
+    return [list $up $dn $rc $inc]
+}
+
 proc ::VMDPathFinder::_ion_flow_visit_dir {pre post} {
     # up / down / recross / incomplete from the sides before and after one visit.
     if {$pre ni {below above} || $post ni {below above}} { return incomplete }
     if {$pre eq $post} { return recross }
     return [expr {$pre eq "below" ? "up" : "down"}]
-}
-
-proc ::VMDPathFinder::_ion_flow_close_visit {} {
-    # Close the caller's open visit (_ion_flow_aggregate's loop variables).
-    upvar 1 _vin vin _vpre pre _vpost post tr_up up tr_down dn tr_incomplete inc \
-        tr_recross rc _tr_tup tup _tr_tdown tdn
-    switch -- [_ion_flow_visit_dir $pre $post] {
-        up { incr up; incr tup }
-        down { incr dn; incr tdn }
-        recross { incr rc }
-        incomplete { incr inc }
-    }
-    set vin 0
 }
 
 proc ::VMDPathFinder::_ion_flow_plane_label {} {
