@@ -47453,6 +47453,11 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
     # leaves, the scan radius. Kept apart from the trace (nothing else reads them) so a
     # translocation's entry and exit side is known even at coarse frame spacing.
     array unset _ein; array unset _eprev; array unset _tre
+    # Per-frame axial shift that places this frame's ions as the protein sat at the nearest
+    # analysed frame. Kept so a frame-to-frame step can be measured relative to the protein
+    # whatever the HOLE stride (with every frame analysed the shift absorbs the protein's own
+    # motion, with a sparse stride it is constant).
+    set _zshift {}
     set pcom_prev {}; set npjump 0; set box_lz 0.0
     # Per-TRAJECTORY-frame axis DIRECTION (the origin below is already frame-local -
     # comx/comy/comz is the LIVE protein COM, remeasured every frame, so it already
@@ -47500,6 +47505,7 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
             lassign $_acom($_nra) _ax _ay _az
             set _so [expr {($_iox-$_ax)*$_iux+($_ioy-$_ay)*$_iuy+($_ioz-$_az)*$_iuz}]
             set comx [expr {$comx+$_so*$_iux}]; set comy [expr {$comy+$_so*$_iuy}]; set comz [expr {$comz+$_so*$_iuz}]
+            lappend _zshift $f $_so
         }
         # This trajectory frame's own sphere set for the true-3D test, resolved ONCE
         # (not per ion) via the same nearest-analyzed-frame lookup as the axis direction.
@@ -47757,7 +47763,7 @@ proc ::VMDPathFinder::_ion_flow_scan {molid frame_ref {with_water 0}} {
         zmin $zmin zmax $zmax zc $zc \
         bulk_lo $_blo bulk_hi $_bhi coord_offset $_coff \
         rmin_hole $rmin_hole rmax_hole $rmax_hole scan_r $scan_r nframes $nf frame_lo $_f_lo nions $nions \
-        traces $traces protein_wrapped $protein_wrapped box_lz $box_lz rprof $rprof \
+        traces $traces protein_wrapped $protein_wrapped box_lz $box_lz rprof $rprof zshift $_zshift \
         has_water [expr {$_wsel_txt ne "" ? 1 : 0}] nwater $nwater water_sel $_wsel_txt \
         molid $molid frame_ref $frame_ref]
 }
@@ -48342,6 +48348,8 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
     set _steps {}
     set species_water [expr {$species eq "Water"}]
     set _gapb [_ion_flow_gap_bridge]
+    array unset _zsh
+    if {[dict exists $raw zshift]} { array set _zsh [dict get $raw zshift] }
     foreach tr [dict get $raw traces] {
         set _trsp [dict get $tr species]
         # "All" is every ION species together - water is never part of it (it
@@ -48424,10 +48432,12 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
             # statistic, reported separately on the occupancy view.
             set _pdf ""; set _pdz 0.0
             foreach _df $d_f _dzz $d_z {
-                # In-pore step between adjacent frames; under 0.01 A is a
-                # repeated frame (e.g. a .gro loaded before its .xtc), not motion.
-                if {$_pdf ne "" && $_df-$_pdf == 1 && abs($_dzz-$_pdz) >= 0.01} {
-                    lappend _steps [list [expr {abs($_dzz-$_pdz)}] [expr {($_dzz+$_pdz)/2.0}]]
+                # In-pore step between adjacent frames, relative to the protein (the
+                # placement shift is added back, so the HOLE stride does not change it);
+                # under 0.01 A is a repeated frame (e.g. a .gro loaded before its .xtc).
+                if {$_pdf ne "" && $_df-$_pdf == 1} {
+                    set _sdz [expr {abs(($_dzz + [_ion_flow_zshift_at _zsh $_df]) - ($_pdz + [_ion_flow_zshift_at _zsh $_pdf]))}]
+                    if {$_sdz >= 0.01} { lappend _steps [list $_sdz [expr {($_dzz+$_pdz)/2.0}]] }
                 }
                 if {$_pdf ne "" && ($_df-$_pdf) <= $_gapb && abs($_dzz-$_pdz) < $zflip} {
                     if {$_pdz <= $zc && $_dzz > $zc} { incr _tr_up } \
@@ -48538,6 +48548,12 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     return [list $med $qm [expr {$qm > 1.0}]]
 }
 
+proc ::VMDPathFinder::_ion_flow_zshift_at {arr f} {
+    # The scan's per-frame placement shift for frame f (0 when it recorded none).
+    upvar 1 $arr a
+    return [expr {[info exists a($f)] ? $a($f) : 0.0}]
+}
+
 proc ::VMDPathFinder::_ion_flow_count_translocations {fs zs inpass edge twlo twhi gapb} {
     # Complete translocations of one molecule, by count_permeation_independent.py's rule: a
     # visit is a run of in-window samples no more than gapb frames apart; its entry side is
@@ -48616,13 +48632,13 @@ proc ::VMDPathFinder::_ion_flow_trans_label {d} {
 }
 
 proc ::VMDPathFinder::_ion_flow_resolution_level {d} {
-    # ok / caution / warning from the median in-pore step / local radius. Thinning a
-    # 40-ps KcsA run (results/mironenko_stride_resolution.csv): counts exact up to a
-    # ratio of 0.73, a few events lost from 0.85, half lost at 1.25.
+    # ok / caution / warning from the median in-pore step (relative to the protein) /
+    # local radius. Thinning a 40-ps KcsA run (results/mironenko_stride_resolution.csv):
+    # counts exact up to a ratio of 0.32, a few events lost from 0.32, half lost at 0.58.
     if {![dict exists $d step_ratio] || ![string is double -strict [dict get $d step_ratio]]} { return ok }
     set q [dict get $d step_ratio]
-    if {$q > 1.0} { return warning }
-    if {$q > 0.7} { return caution }
+    if {$q > 0.5} { return warning }
+    if {$q > 0.3} { return caution }
     return ok
 }
 
@@ -48634,7 +48650,7 @@ proc ::VMDPathFinder::_ion_flow_resolution_note {d} {
         default { return "" }
     }
     return [format "Ion & Water: %s - molecules move a median %.2f \u00c5 between frames inside the\
-        pore, %.2f\u00d7 the local pore radius (counts reliable below 0.7, unreliable above 1)" \
+        pore, %.2f\u00d7 the local pore radius (counts reliable up to 0.3, unreliable above 0.5)" \
         $lead [dict get $d step_med] [dict get $d step_ratio]]
 }
 
