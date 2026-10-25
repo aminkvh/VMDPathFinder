@@ -3,4 +3,4 @@
 profile,barrier_z_A,G_peak_kcal_mol,baseline_kcal_mol,barrier_height_kcal_mol,n_bins
 "CHAP 0.9.1",8.500,2.3514,-0.0438,2.3951,39
 "VMDPathFinder, CHAP-compatible",7.500,2.0198,0.0000,2.0198,39
-"VMDPathFinder, default (fixed 1.4 A)",7.500,6.1533,0.0000,6.1533,39
+"VMDPathFinder, default (fixed 1.4 A)",7.500,6.0525,0.0000,6.0525,41
