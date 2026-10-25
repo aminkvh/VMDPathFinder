@@ -1,0 +1,22 @@
+# generated_by: plugin = Ion & Water _ion_flow_aggregate (treptow_flow_T.tcl); independent = count_permeation_independent.py count()
+# utc: 2026-10-25
+# git: 8021fe1
+# data: Treptow et al. eLife 2024, Zenodo 10938041, Figure02 Kv1.2-2.1 chimera, 91 K+, 4167 frames at 2.4 ns.
+# translocation = a visit to the window (R < r, zlo <= z <= zhi) entering at one end and leaving by the other; entry/exit
+#   side from the frame just before / just after the visit; gaps up to 3 frames bridged (independent --gap 2 = same rule).
+# coords: "protein" = z, R about the protein centre, min-imaged, lab z (independent load_plane lab=True; the plugin's own
+#   frame); "lab origin" = independent default mode (R from the lab z axis through x=y=0, raw lab z).
+# Per ion: CHARMM36m R<3 window, 35 translocating ions, 0 differ between plugin and independent (protein coords).
+forcefield,window,implementation,coords,up,down,net,returned,unresolved
+AMBER,"R<3 z[-6,8]",plugin,protein,0,0,0,3,3
+AMBER,"R<3 z[-6,8]",independent,protein,0,0,0,3,3
+AMBER,"R<3 z[-6,8]",independent,lab origin,0,0,0,3,3
+AMBER,"R<4 z[-10,15]",plugin,protein,1,2,-1,4,3
+AMBER,"R<4 z[-10,15]",independent,protein,1,2,-1,4,3
+AMBER,"R<4 z[-10,15]",independent,lab origin,1,2,-1,5,3
+CHARMM36m,"R<3 z[-6,8]",plugin,protein,42,3,39,25,7
+CHARMM36m,"R<3 z[-6,8]",independent,protein,42,3,39,25,7
+CHARMM36m,"R<3 z[-6,8]",independent,lab origin,43,3,40,25,6
+CHARMM36m,"R<4 z[-10,15]",plugin,protein,49,30,19,119,21
+CHARMM36m,"R<4 z[-10,15]",independent,protein,49,30,19,119,21
+CHARMM36m,"R<4 z[-10,15]",independent,lab origin,50,29,21,118,15
