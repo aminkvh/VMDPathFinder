@@ -1,16 +1,15 @@
-# generated_by: manual startup-cost probe (JCIM round-1 reviewer 2, minor V)
-# utc: 2026-10-23T22:20:55Z
-# git: 21970cd+dirty
+# generated_by: startup-cost probe, mole_official_rerun.sh (JCIM round-1 reviewer 2, minor V)
+# utc: 2026-10-26T21:39:52Z
+# git: 3ffaca4
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# question: does Mono/MOLE2 process start-up account for much of the reported speedup?
-# method: fit wall_time = fixed + k*natoms over the three benchmark structures in
-#   tunnel_vs_mole2.csv, then TEST the fit against a fourth, smaller structure (1GRM,
-#   770 atoms) that was not used to fit it. mono warm (first call discarded: 0.35 s cold).
-# result: MOLE2 fixed 177.6 ms, 55.958 us/atom; VMDPathFinder fixed -0.9 ms, 9.065 us/atom.
-#   Compute-only (slope) speedup 6.17x vs 9.3-15.3x end-to-end. MOLE2 fixed cost is
-#   59% / 51% / 32% of its total on 1ERI / 1BL8 / 1MXT. Reviewer's suspicion is correct.
+# MOLE2 = official MOLE 2.5.24.6.8 release (Mole2_cmd.zip sha256:8cc10e1285279da2, webchem.ncbr.muni.cz) under Mono 6.12.0.199
+# method: fit wall_time = fixed + k*natoms over the three structures in tunnel_vs_mole2.csv (medians of 10),
+#   then TEST the fit on a fourth structure not used to fit it (1GRM, 770 atoms, auto origin; median of 5 warm runs, cold call discarded).
+# result: MOLE2 fixed 179.9 ms, 55.383 us/atom; VMDPathFinder fixed 0.1 ms, 8.795 us/atom.
+#   Compute-only (slope) speedup 6.30x vs 9.4-14.8x end-to-end. MOLE2 fixed cost is 60% / 52% / 33% of its total on 1ERI / 1BL8 / 1MXT.
+# previous run (source build of the same version, 3 repeats): fixed 177.6 ms, slope 6.17x, 9.3-15.3x
 structure,natoms,mole2_s,ours_s,role
-1ERI,2314,0.2987,0.0196,fit
-1BL8,2820,0.3449,0.0252,fit
-1MXT_noHET,6648,0.5485,0.0593,fit
-1GRM,770,0.21,,held-out test (model predicted 0.221 s)
+1ERI,2314,0.3001,0.0202,fit
+1BL8,2820,0.3450,0.0251,fit
+1MXT_noHET,6648,0.5470,0.0585,fit
+1GRM,770,0.21,,held-out test (model predicted 0.223 s)
