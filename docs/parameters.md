@@ -64,6 +64,7 @@ Atomic radii are separate from the bare, hydrated, and probe radii used by
 | Monte Carlo temperature | blank (HOLE default 0.1) | Simulated-annealing acceptance parameter |
 | Connolly surface (HOLE parameters, Connolly runs only) | HOLE conn | Under Monte Carlo, choose HOLE's `conn` or its port in `nm_search`; Nelder-Mead uses the port |
 | Surface mesher (File → Settings) | Marching cubes, grid 1.4 Å / neck 0.7 Å | Builds pore and tunnel surfaces. Lower grid for finer detail at greater cost; neck controls spherical-pore refinement. Connolly uses grid uniformly. The alternative, `sos_triangle`, uses dot density |
+| Ellipse fit box (File → Settings) | 1.6 × HOLE radius | Starting half-width of the atom box the ellipse fit searches (PoreAnalyser's `n_xy_fac`; 1.6 is its default). The box adapts to 30–150 atoms and caps the major semi-axis. A larger value, e.g. 3.0, tests more atoms and can find a valid ellipse in wide, irregular cross-sections. Changing it refits every ellipse |
 | Hide sideways spill | off | Remove Connolly surface regions classified as lateral spill |
 | Margin | 2 Å | Distance beyond the traced pore wall that still belongs to the central pore |
 | Opening axial match tolerance | 6 Å | Maximum axial displacement used to match a lateral opening across frames |

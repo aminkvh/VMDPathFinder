@@ -1,19 +1,20 @@
 # generated_by: score_ellipses.py (JCIM round-1, reviewer 2 point I)
-# utc: 2026-10-26T18:52:00Z
-# git: ec91495 (VMDPathFinder ellipse fit after ec91495: initial simplex clipped, not reflected, as scipy 1.12 does)
+# utc: 2026-10-26T19:40:00Z
+# git: b7fecbf (plugin ellipse box = Settings > Engines > Ellipse fit box, default 1.6 = PoreAnalyser n_xy_fac; "both 3.0" rows: plugin box 3.0 vs PA --n-xy-fac 3.0)
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
 # structures: 1BL8 (KcsA), 4HFI (GLIC) and 7OPH (NaK S-DI, tetramer from BIOMT, build_biomt_assembly.py), ATOM records only, rotated so the HOLE cvect is lab z (tilt removed 21.2 / 26.7 / 90.0 deg); same .sph to both tools
 # PoreAnalyser: run_poreanalyser.py --parallel --scheduler pool (their insert_ellipse unchanged; their own scheduler drops finished slices); numpy 1.26.4; scipy 1.12.0 unless stated
 # referee: every ellipse re-scored with PoreAnalyser's own radii/slab projection/ellipse-disc distance, minor axis 0.9*b (their stage-1 fit); valid = clearance >= -0.01 A against every protein atom in the +/-2 A slab; G = 100*kappa/int(dz/A), kappa 12 S/m, over paired slices
 run,pa_slices_scheduled,pa_rows,pa_unfitted_own_rule,paired,pct_da_within_0.5A,median_abs_da_A,max_abs_da_A,pa_valid_pct,ours_valid_pct,both_valid,ours_larger,pa_larger,median_area_diff_A2,G_ours_pS,G_pa_pS,G_circle_pS,G_diff_pct
-1BL8 aligned; PA as shipped (their scheduler 20 s),221,192,7,192,95.8,0.0070,1.030,100.0,99.6,191,85,89,-0.000,192.73,194.90,139.78,-1.11
-1BL8 aligned; PA complete,221,201,20,201,96.0,0.0056,1.030,100.0,99.6,200,88,95,-0.000,190.29,192.42,138.14,-1.11
-1BL8 aligned; PA complete; scipy 1.14.1,221,201,20,201,97.0,0.0084,0.735,100.0,99.6,200,82,103,-0.000,190.29,192.54,138.14,-1.17
-1BL8 aligned; PA n_xy_fac 3.0 (our box),221,214,7,214,100.0,0.0000,0.202,99.5,99.6,213,106,71,0.000,187.17,186.84,135.70,0.18
-4HFI GLIC aligned; PA complete,359,359,0,359,95.3,0.0000,2.867,98.1,99.3,352,173,157,0.000,1191.94,1190.98,976.08,0.08
-4HFI GLIC aligned; PA n_xy_fac 3.0 (our box),359,359,0,359,99.2,0.0000,3.366,100.0,99.3,359,153,177,-0.000,1191.94,1190.39,976.08,0.13
-7OPH NaK S-DI aligned; PA complete,154,144,10,144,78.5,0.0156,3.938,97.2,99.4,140,72,60,0.000,303.73,301.61,213.97,0.70
-7OPH NaK S-DI aligned; PA n_xy_fac 3.0 (our box),154,153,1,153,99.3,0.0000,1.185,100.0,99.4,153,70,57,0.000,304.71,303.82,214.23,0.29
+1BL8 aligned; PA as shipped (their scheduler 20 s),221,192,7,192,99.5,0.0000,0.674,100.0,100.0,192,85,72,0.000,195.04,194.90,139.78,0.07
+1BL8 aligned; PA complete,221,201,20,201,99.5,0.0000,0.674,100.0,100.0,201,89,77,0.000,192.57,192.42,138.14,0.07
+1BL8 aligned; PA complete; scipy 1.14.1,221,201,20,201,99.0,0.0000,1.040,100.0,100.0,201,92,78,0.000,192.57,192.54,138.14,0.01
+1BL8 aligned; both n_xy_fac 3.0,221,214,7,214,100.0,0.0000,0.202,99.5,99.6,213,106,71,0.000,187.17,186.84,135.70,0.18
+4HFI GLIC aligned; PA complete,359,359,0,359,99.7,0.0000,2.867,98.1,96.6,352,134,187,-0.000,1191.65,1190.98,976.08,0.06
+4HFI GLIC aligned; both n_xy_fac 3.0,359,359,0,359,99.2,0.0000,3.366,100.0,99.3,359,153,177,-0.000,1191.94,1190.39,976.08,0.13
+7OPH NaK S-DI aligned; PA complete,154,144,10,144,100.0,0.0000,0.455,97.2,96.5,140,67,52,0.000,302.41,301.61,213.97,0.26
+7OPH NaK S-DI aligned; both n_xy_fac 3.0,154,153,1,153,99.3,0.0000,1.185,100.0,99.4,153,70,57,0.000,304.71,303.82,214.23,0.29
 # PA vs PA, scipy 1.12.0 vs 1.14.1, 200 common slices: a identical 161, |da|>0.01 A 29, >0.5 A 1, max 1.040 A
 # submitted (tilted 21.2 deg, 192 rows): pct within 0.5 A 66, median 0.2535, max 8.4475 (poreanalyser_ellipse.csv)
+# plugin box 3.0 vs PA default 1.6 (plugin box was fixed at 3.0 before b7fecbf): 1BL8 96.0 %, GLIC 95.3 %, 7OPH 78.5 % within 0.5 A; G -1.11 / +0.08 / +0.70 %
 # before ec91495 (initial simplex reflected): 1BL8 complete 96.0 %, n_xy_fac 3.0 99.1 %; GLIC 93.9 %; 7OPH 74.3 % / 88.2 %
