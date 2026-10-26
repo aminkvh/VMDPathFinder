@@ -805,6 +805,9 @@ namespace eval ::VMDPathFinder:: {
         ion_flow_win_lo {}
         ion_flow_win_hi {}
         ion_flow_win_zc {}
+        ion_flow_region_lo {}
+        ion_flow_region_hi {}
+        ion_flow_region_r {}
         show_crossing_cue 1
         ion_flow_stride 1
         ion_flow_species __all__
@@ -48510,6 +48513,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         n_cross_up $n_cross_up n_cross_down $n_cross_down \
         trans_up $tr_up trans_down $tr_down trans_net [expr {$tr_up-$tr_down}] trans_incomplete $tr_incomplete trans_recross $tr_recross \
         step_med $_step_med step_ratio $_step_ratio unresolved $_step_unres \
+        region [_ion_flow_region_for $raw $species] \
         nframes $nf nused $nf frame_lo $_f0 rmin_hole $rmin_hole rmax_hole [dict get $raw rmax_hole] \
         species $species_label traces $out_traces stride 1 protein_wrapped [dict get $raw protein_wrapped] box_lz $box_lz \
         rprof [expr {[dict exists $raw rprof] ? [dict get $raw rprof] : {}}] \
@@ -48552,6 +48556,153 @@ proc ::VMDPathFinder::_ion_flow_zshift_at {arr f} {
     # The scan's per-frame placement shift for frame f (0 when it recorded none).
     upvar 1 $arr a
     return [expr {[info exists a($f)] ? $a($f) : 0.0}]
+}
+
+proc ::VMDPathFinder::_ion_flow_region_walk {seq} {
+    # Passages of one molecule by the region rule of Mironenko et al.'s deposited counter
+    # (count-ion-permeation.py), ported line for line: regions 1 below the lower end, 2 lower
+    # half, 3 upper half, 4 above; an ordered 1-2-3-4 walk is one passage up, 4-3-2-1 one
+    # down; 4->1 / 1->4 is the periodic wrap. seq may have repeats removed (they change nothing).
+    set up 0; set dn 0; set s0 0; set s1 5
+    foreach r $seq {
+        if {$r == $s0 + 1} { incr s0 } elseif {$s0 == 4 && $r == 1} { set s0 1 } \
+            elseif {$r == $s0 - 1} { incr s0 -1 } elseif {$s0 == 1 && $r == 4} { set s0 0 }
+        if {$r == $s1 - 1} { incr s1 -1 } elseif {$s1 == 1 && $r == 4} { set s1 4 } \
+            elseif {$r == $s1 + 1} { incr s1 } elseif {$s1 == 4 && $r == 1} { set s1 5 }
+        if {$s0 == 4} { set s0 0; incr up }
+        if {$s1 == 1} { set s1 5; incr dn }
+    }
+    return [list $up $dn]
+}
+
+proc ::VMDPathFinder::_ion_flow_region_seltext {k u zl zm zh c rmax} {
+    # VMD selection text for region k (1-4) on one frame: position projected on the axis u
+    # against the ends zl < zm < zh. With rmax set, a molecule farther than rmax from the
+    # line through c along u is never inside: below the midpoint it is region 1, above it 4.
+    lassign $u ux uy uz
+    lassign $c cx cy cz
+    set P [format "(x*%.17g+y*%.17g+z*%.17g)" $ux $uy $uz]
+    foreach v {zl zm zh} { set $v [format %.17g [set $v]] }
+    set out ""
+    if {$rmax ne ""} {
+        set dx [format "(x-%.17g)" $cx]; set dy [format "(y-%.17g)" $cy]; set dz [format "(z-%.17g)" $cz]
+        set out [format "(sqr(%s)+sqr(%s)+sqr(%s)-sqr(%s*%.17g+%s*%.17g+%s*%.17g)) > %.17g" \
+            $dx $dy $dz $dx $ux $dy $uy $dz $uz [expr {double($rmax) * $rmax}]]
+    }
+    switch -- $k {
+        1 { set t "$P < $zl"; if {$out ne ""} { set t "$t or (($out) and $P < $zm)" } }
+        2 { set t "$P >= $zl and $P < $zm"; if {$out ne ""} { set t "$t and not ($out)" } }
+        3 { set t "$P >= $zm and $P < $zh"; if {$out ne ""} { set t "$t and not ($out)" } }
+        default { set t "$P >= $zh"; if {$out ne ""} { set t "$t or (($out) and $P >= $zm)" } }
+    }
+    return $t
+}
+
+proc ::VMDPathFinder::_ion_flow_region_count {molid seltxt lotxt hitxt rmax u f_lo f_hi} {
+    # Region passages for every molecule of seltxt over frames f_lo..f_hi: the window ends
+    # are the mean axial positions of the lotxt / hitxt atoms, re-measured every frame, and
+    # positions are used as stored (no re-imaging), as in the authors' counter. Only region
+    # CHANGES are fetched: the molecules' beta field holds their current region while this
+    # runs, so each frame is four C-speed selections, and is restored afterwards.
+    # Returns {up down nmol}, or "" if a selection is empty or invalid.
+    variable state
+    if {[catch {atomselect $molid "($seltxt)"} ssp]} { return "" }
+    if {[catch {atomselect $molid $lotxt} slo]} { $ssp delete; return "" }
+    if {[catch {atomselect $molid $hitxt} shi]} { $ssp delete; $slo delete; return "" }
+    set res ""
+    if {[$ssp num] && [$slo num] && [$shi num]} {
+        set beta0 [$ssp get beta]
+        $ssp set beta 0
+        lassign $u ux uy uz
+        array set seq {}
+        set tlast [clock milliseconds]
+        set err [catch {
+            for {set f $f_lo} {$f <= $f_hi} {incr f} {
+                $slo frame $f; $shi frame $f
+                set cl [measure center $slo]; set ch [measure center $shi]
+                set zl [vecdot $cl $u]; set zh [vecdot $ch $u]
+                if {$zl > $zh} { set t $zl; set zl $zh; set zh $t }
+                set zm [expr {($zl + $zh) / 2.0}]
+                set c [vecscale 0.5 [vecadd $cl $ch]]
+                foreach k {1 2 3 4} {
+                    set s [atomselect $molid "($seltxt) and beta != $k and ([_ion_flow_region_seltext $k $u $zl $zm $zh $c $rmax])" frame $f]
+                    if {[$s num]} {
+                        foreach i [$s get index] { lappend seq($i) $k }
+                        $s set beta $k
+                    }
+                    $s delete
+                }
+                if {[clock milliseconds] - $tlast > 400} {
+                    set state(status) "Region passages: frame [expr {$f - $f_lo + 1}] / [expr {$f_hi - $f_lo + 1}]…"
+                    catch {update idletasks}
+                    set tlast [clock milliseconds]
+                }
+            }
+        } emsg]
+        $ssp set beta $beta0
+        if {!$err} {
+            set up 0; set dn 0
+            foreach i [array names seq] {
+                lassign [_ion_flow_region_walk $seq($i)] a b
+                incr up $a; incr dn $b
+            }
+            set res [list $up $dn [$ssp num]]
+        } else {
+            vmdcon -warn "VMDPathFinder: region passages failed: $emsg"
+        }
+    }
+    $ssp delete; $slo delete; $shi delete
+    return $res
+}
+
+proc ::VMDPathFinder::_ion_flow_region_for {raw species} {
+    # Region passages for the aggregate's species, when both end selections are set
+    # (Ion & Water settings); cached per molecule, selections, radius, axis and frames.
+    variable state
+    variable _ion_flow_region_cache
+    if {![info exists _ion_flow_region_cache]} { set _ion_flow_region_cache [dict create] }
+    foreach k {region_lo region_hi region_r} {
+        set $k [expr {[info exists state(ion_flow_$k)] ? [string trim $state(ion_flow_$k)] : ""}]
+    }
+    if {$region_lo eq "" || $region_hi eq "" || [dict get $raw path]} { return {} }
+    if {$region_r ne "" && (![string is double -strict $region_r] || $region_r <= 0)} { set region_r "" }
+    set molid [dict get $raw molid]
+    if {$species eq ""} { set species __all__ }
+    if {$species eq "Water"} {
+        set seltxt [expr {[dict exists $raw water_sel] ? [dict get $raw water_sel] : ""}]
+    } else {
+        set sels {}
+        foreach spec [detect_ions $molid] {
+            if {$species eq "__all__" || [lindex $spec 0] eq $species} { lappend sels "([lindex $spec 1])" }
+        }
+        set seltxt [join $sels " or "]
+    }
+    if {$seltxt eq ""} { return {} }
+    lassign [_ion_flow_frame_span $molid] f_lo f_hi
+    set key [list $molid [molinfo $molid get numframes] $seltxt $region_lo $region_hi $region_r [dict get $raw axis] $f_lo $f_hi]
+    if {![dict exists $_ion_flow_region_cache $key]} {
+        set r [_ion_flow_region_count $molid $seltxt $region_lo $region_hi $region_r [dict get $raw axis] $f_lo $f_hi]
+        if {$r eq ""} {
+            _note "Ion & Water: region passages need atoms in both end selections and the species" warn
+            return {}
+        }
+        dict set _ion_flow_region_cache $key $r
+        vmdcon -info "VMDPathFinder: region passages ([_ion_flow_region_def $region_lo $region_hi $region_r]), $species: up [lindex $r 0] down [lindex $r 1] over frames $f_lo-$f_hi"
+    }
+    lassign [dict get $_ion_flow_region_cache $key] up dn
+    return [dict create up $up down $dn def [_ion_flow_region_def $region_lo $region_hi $region_r]]
+}
+
+proc ::VMDPathFinder::_ion_flow_region_def {lo hi r} {
+    return "ends: $lo | $hi[expr {$r eq "" ? ", no radial limit" : ", R ≤ $r Å"}]"
+}
+
+proc ::VMDPathFinder::_ion_flow_region_label {d} {
+    # One line for the plot header / CSV; "" when region passages are off.
+    if {![dict exists $d region] || ![llength [dict get $d region]]} { return "" }
+    set r [dict get $d region]
+    return [format "region passages (%s): up %d  down %d  net %d" [dict get $r def] \
+        [dict get $r up] [dict get $r down] [expr {[dict get $r up] - [dict get $r down]}]]
 }
 
 proc ::VMDPathFinder::_ion_flow_count_translocations {fs zs inpass edge twlo twhi gapb} {
@@ -48751,6 +48902,23 @@ proc ::VMDPathFinder::show_ion_flow_settings {} {
         -command ::VMDPathFinder::_sync_crossing_cue
     grid $d.cwc -row $row -column 0 -columnspan 2 -sticky w -padx 10 -pady 3; incr row
     add_tooltip $d.cwc "Draw the crossing plane (disc) and the window ends (rings) in the 3D view."
+    # Region passages: window ends from atom selections, re-measured every frame, counted
+    # by the ordered four-region rule of Mironenko et al. (2024). Off while either end is blank.
+    label $d.rgl -text "Region passages (ends from selections)" -font {Helvetica 9 bold} -anchor w
+    grid $d.rgl -row $row -column 0 -columnspan 2 -sticky w -padx 10 -pady {8 2}; incr row
+    foreach {k lab wd tip} {
+        region_lo "Lower end" 24 "Atoms whose mean axial position is the lower end, every frame (e.g. resid 75 and name C). Blank = off."
+        region_hi "Upper end" 24 "Atoms whose mean axial position is the upper end, every frame (e.g. resid 78 and name C). Blank = off."
+        region_r  "R (Å)"     8  "Radial limit from the axis through the two ends' centre. Outside it a molecule counts as bulk on its side of the midpoint. Blank = no limit (fine for ions; water near the membrane needs one)."
+    } {
+        label $d.l$k -text $lab -anchor w
+        entry $d.e$k -width $wd -textvariable ::VMDPathFinder::state(ion_flow_$k)
+        grid $d.l$k -row $row -column 0 -sticky w -padx {20 6} -pady 1
+        grid $d.e$k -row $row -column 1 -sticky w -padx {0 10} -pady 1; incr row
+        bind $d.e$k <Return>   {catch {::VMDPathFinder::_ion_flow_refilter}}
+        bind $d.e$k <FocusOut> {catch {::VMDPathFinder::_ion_flow_refilter}}
+        add_tooltip $d.e$k $tip
+    }
     grid [_settings_btn_row $d ::VMDPathFinder::_ion_flow_refilter] -row $row -column 0 -columnspan 2 -sticky w -padx 8 -pady {8 10}
     _center_toplevel $d
 }
@@ -49501,6 +49669,7 @@ proc ::VMDPathFinder::_draw_ion_flow_occupancy {} {
         [list [format "arrows = mean displacement   \u00b7   net plane flux at z = %.1f \u00c5 (%s): up %d  down %d  net %d%s" \
               [dict get $d zc] [_ion_flow_window_label] $up $down $net [_ion_flow_rcut_note $d]] {Helvetica 8} "#333333"] \
         [list [_ion_flow_trans_label $d] {Helvetica 8 bold} "#333333"] \
+        {*}[expr {[_ion_flow_region_label $d] ne "" ? [list [list [_ion_flow_region_label $d] {Helvetica 8 bold} "#333333"]] : {}}] \
         [list $_wallkey {Helvetica 8} "#2b2b2b"]]]
     set mt [expr {$_hy+6}]
     set ph [expr {$H-$mt-$mb}]
@@ -50145,6 +50314,7 @@ proc ::VMDPathFinder::export_ion_flow_csv {} {
     if {[dict exists $d trans_up] && [llength $state(ion_flow_window)] in {3 4}} {
         puts $fh "# translocations (window: [_ion_flow_window_label]): up=[dict get $d trans_up] down=[dict get $d trans_down] net=[dict get $d trans_net] returned=[dict get $d trans_recross] unresolved=[dict get $d trans_incomplete]"
     }
+    if {[_ion_flow_region_label $d] ne ""} { puts $fh "# [_ion_flow_region_label $d]" }
     if {[dict exists $d step_med] && [dict get $d step_med] ne ""} {
         puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}], resolution=[_ion_flow_resolution_level $d]"
         set _rn [_ion_flow_resolution_note $d]

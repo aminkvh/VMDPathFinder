@@ -305,6 +305,26 @@ water the Passage view has a **Show** picker: **All crossing** (default),
 **Passage up**, **Passage down**, or **All entered**, which also draws the
 molecules that never crossed.
 
+**Crossing window** (Ion & Water settings). With **Set**, a translocation is a
+visit to the window that enters at one end and leaves by the other; the
+entry and exit sides come from the frames just before and after the visit.
+Visits that leave by the end they entered (returned) and visits still open at
+the end (unresolved) are reported separately. The log and CSV also give the
+frame-spacing ratio: the median in-pore step between frames, relative to the
+protein, divided by the local pore radius. Above 0.3 counts may miss events
+(caution); above 0.5 they are unreliable (warning).
+
+**Region passages** count with window ends that follow atoms instead of fixed
+numbers. Give a lower-end and an upper-end selection; each frame, their mean
+positions along the pore axis bound four regions (below, lower half, upper
+half, above), and an ordered walk through all four is one passage, as in the
+counter of Mironenko et al. (PNAS Nexus 2024). Positions are used as stored
+in the trajectory, so a molecule leaving the top of the box and re-entering at
+the bottom completes the cycle. An optional radius R confines the inner two
+regions to a cylinder about the axis; leave it blank for ions, set it for
+water, which otherwise counts molecules beside the protein. The count appears
+in the occupancy header, the Message Log and the CSV.
+
 None of these views is a full permeation count.
 Select **Permeation** to count complete bulk-to-bulk crossings along the
 per-frame pore axis. Supply bulk planes, the saved-frame interval, and an

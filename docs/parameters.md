@@ -220,6 +220,9 @@ barrier is a sampling-dependent lower bound.
 | Species | All detected | All = every ion type, never water; Water = one oxygen per molecule from the Hydration water selection |
 | Shell | 3 Å | Radial region beyond the mean pore wall included in the map |
 | Flip Z | off | Reverse plotted pore direction |
+| Crossing window | Auto | Auto = surface shell and mean-profile narrowest point. Set = radial limit R, axial ends and plane; translocations (in one end, out the other) are counted only with a set window |
+| Region passages: lower / upper end | blank (off) | VMD selections whose mean axial position is each window end, re-measured every frame (e.g. `resid 75 and name C`) |
+| Region passages: R | blank (no limit) | Radial limit from the axis through the two ends' centre; outside it a molecule counts as bulk on its side of the midpoint |
 | Permeation bulk planes | automatic | Two bulk boundaries along the per-frame pore axis |
 | Time between saved frames | blank | Required to convert counts to rates |
 | Applied voltage | blank | Required, with time, to estimate conductance from net transferred charge |

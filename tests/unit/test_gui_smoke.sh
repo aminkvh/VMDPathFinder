@@ -646,6 +646,7 @@ puts "XWIN set: {$::VMDPathFinder::state(ion_flow_window)} [expr {$::VMDPathFind
 destroy $d
 ::VMDPathFinder::show_ion_flow_settings; update
 puts "XWIN reopens with the fields: $::VMDPathFinder::state(ion_flow_win_mode) $::VMDPathFinder::state(ion_flow_win_lo) [expr {$::VMDPathFinder::state(ion_flow_win_mode) eq {set} && $::VMDPathFinder::state(ion_flow_win_lo) == -6 ? {OK} : {BAD}}]"
+puts "XWIN region-passage fields [expr {[winfo exists $d.eregion_lo] && [winfo exists $d.eregion_hi] && [winfo exists $d.eregion_r] ? {OK} : {BAD}}]"
 set ::VMDPathFinder::state(ion_flow_win_mode) auto
 ::VMDPathFinder::_ion_flow_window_apply
 puts "XWIN Auto clears: {$::VMDPathFinder::state(ion_flow_window)} [expr {$::VMDPathFinder::state(ion_flow_window) eq {} ? {OK} : {BAD}}]"
