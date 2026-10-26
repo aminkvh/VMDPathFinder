@@ -1,0 +1,16 @@
+# generated_by: VMDPathFinder region passages (Ion & Water settings: lower/upper end selections, R), harness scratch region_T.tcl; reference = count_water_k_mironenko.py (mironenko_water_k.csv)
+# git: f458928  ends: protein and resid 75 and name C | protein and resid 78 and name C (G77A/E71A tpr numbering: resid 50 146 242 338 | 53 149 245 341); axis 0 0 1
+# inputs: E71A gro + E71A.CHARMM36m.K.xtc; T75A/E71A and G77A/E71A atom subsets (protein, K+, water O) as pdb+dcd. Water = name OH2 OW.
+trajectory,species,definition,plugin_up,plugin_down,reference_up,reference_down,identical,seconds
+E71A,K,authors_rule,51,0,51,0,1,379
+E71A,K,authors_rule_r<5,51,0,51,0,1,447
+E71A,water,authors_rule,11,63,11,63,1,111
+E71A,water,authors_rule_r<5,0,0,0,0,1,224
+T75A/E71A,K,authors_rule,2,0,2,0,1,53
+T75A/E71A,K,authors_rule_r<5,2,0,2,0,1,74
+T75A/E71A,water,authors_rule,14,38,14,38,1,58
+T75A/E71A,water,authors_rule_r<5,1,0,1,0,1,104
+G77A/E71A,K,authors_rule,5,0,5,0,1,100
+G77A/E71A,K,authors_rule_r<5,5,0,5,0,1,143
+G77A/E71A,water,authors_rule,50,114,50,114,1,84
+G77A/E71A,water,authors_rule_r<5,9,8,9,8,1,163
