@@ -1067,8 +1067,10 @@ static void sci_nm(double sim[5][4], const double *ax,const double *ay,const dou
   const int N=4; int i,j,k,it;
   double rho=1.0, chi=1.0+2.0/N, psi=0.75-1.0/(2.0*N), sigma=1.0-1.0/N, xatol=1e-4, fatol=1e-4;
   double f[5];
-  for(i=0;i<5;i++){ for(j=0;j<4;j++){ if(sim[i][j]>ub[j]) sim[i][j]=2*ub[j]-sim[i][j]; }
-    sci_clip(sim[i],lb,ub); }
+  /* scipy 1.12 only CLIPS a supplied initial_simplex; its reflect-into-interior step belongs to
+     the default-simplex branch. Reflecting here moved the COG seed when the atoms' centre of
+     geometry lies outside the centre box (7OPH: 88.2 -> 99.3 % agreement once removed). */
+  for(i=0;i<5;i++) sci_clip(sim[i],lb,ub);
   for(i=0;i<5;i++) f[i]=sci_pen(sim[i],ax,ay,ar,na,beff);
   sci_sort5(sim,f); it=1;
   while(it<maxiter){

@@ -45287,12 +45287,10 @@ proc ::VMDPathFinder::_sci_nm {sim atoms beff lb ub maxiter} {
     set N 4
     set rho 1.0; set chi [expr {1.0+2.0/$N}]; set psi [expr {0.75-1.0/(2.0*$N)}]
     set sigma [expr {1.0-1.0/$N}]; set xatol 1e-4; set fatol 1e-4
-    # reflect-into-interior then clip the initial simplex
+    # clip the initial simplex (scipy 1.12 does not reflect a supplied initial_simplex)
     set S {}; set F {}
     foreach v $sim {
-        set w {}
-        foreach x $v u $ub { if {$x>$u} {set x [expr {2*$u-$x}]}; lappend w $x }
-        set w [_sci_clip $w $lb $ub]
+        set w [_sci_clip $v $lb $ub]
         lappend S $w; lappend F [_sci_pen $w $atoms $beff]
     }
     # sort ascending by F (insertion sort, mirrors C)
