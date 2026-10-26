@@ -650,6 +650,15 @@ puts "XWIN region-passage fields [expr {[winfo exists $d.eregion_lo] && [winfo e
 set ::VMDPathFinder::state(ion_flow_win_mode) auto
 ::VMDPathFinder::_ion_flow_window_apply
 puts "XWIN Auto clears: {$::VMDPathFinder::state(ion_flow_window)} [expr {$::VMDPathFinder::state(ion_flow_window) eq {} ? {OK} : {BAD}}]"
+::VMDPathFinder::show_settings_dialog
+set d $::VMDPathFinder::w.settings
+puts "EBOX field+default [expr {[winfo exists $d.ebox.e] && [::VMDPathFinder::_ellipse_box] == 1.6 ? {OK} : {BAD}}]"
+set ::VMDPathFinder::state(ellipse_box) abc
+puts "EBOX bad value falls back [expr {[::VMDPathFinder::_ellipse_box] == 1.6 ? {OK} : {BAD}}]"
+set ::VMDPathFinder::state(ellipse_box) 3.0
+::VMDPathFinder::_commit_ellipse_box
+puts "EBOX persisted [expr {[::VMDPathFinder::_ellipse_box] == 3.0 && {ellipse_box} in [::VMDPathFinder::_config_persistent_keys] ? {OK} : {BAD}}]"
+set ::VMDPathFinder::state(ellipse_box) 1.6
 S7_EOF
 run_section crossing-window "$T/s7.tcl"
 

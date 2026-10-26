@@ -946,6 +946,8 @@ static double asym_axis[3] = {0.0, 0.0, 0.0};
    oversubscribe to N*nproc threads. */
 static int asym_threads = 1;
 static int asym_threads_explicit = 0;
+/* PoreAnalyser n_xy_fac: starting neighbour box = fac*HOLE radius (--asym-box F). */
+static double asym_nxy_fac = 1.6;
 static void asym_threads_auto_single_frame(void)
 {
   if (asym_threads_explicit) return;
@@ -1250,7 +1252,7 @@ static void compute_ellipse(int N, FILE *out, int with_geo)
       {
       int idx = keep[kj];
       double cx = sph_x[idx], cy = sph_y[idx], cz = sph_z[idx], b = sph_r[idx];
-      double nxf = 3.0; int tries, kk, np = 0;
+      double nxf = asym_nxy_fac; int tries, kk, np = 0;
       double a, th = 0.0, ecx = 0.0, ecy = 0.0, bs = 0.0;
       double t0 = g_ellipse_timing ? now_sec() : 0.0;
       /* PoreAnalyser neighbor_vec: xy-box |u|,|v|<n_xy=n_xy_fac*b, z-slab |dt|<2 AND |dt|<R0
@@ -3462,7 +3464,7 @@ int main (int argc, char *argv[])
 	      "--hydro-signed","--hydro-scheme","--hydro-shell","--batch","--batch-recolor",
 	      "--bands","--band-names",
 	      "--batch-hydro3d-props","--batch-hydro3d-recolor",
-	      "--batch-asym-ellipse","--asym-threads","--recolor-threads",NULL };
+	      "--batch-asym-ellipse","--asym-threads","--asym-box","--recolor-threads",NULL };
 	    static const char *two_arg[] = { "--hydro-range","--batch-hydro3d-average","--clip-geo",NULL };
 	    int gi;
 	    for (gi = 0; one_arg[gi]; gi++)
@@ -3475,7 +3477,7 @@ int main (int argc, char *argv[])
 	  if (strcmp(argv[1], "--hole-features") == 0) {
 	    /* capability probe: the plugin greps stdout for these tokens to decide
 	       which accelerated outputs this binary supports. */
-	    fprintf(stdout, "hole_features: hydro points batch recolor values props residue batchrecolor hydro3d hydro3dprops batchhydro3dprops hydrorange hydro3dlining batchhydro3drecolor hydro3daverage asymellipse batchasymellipse asymellipsegeo asymthreads clipgeo esp recolorthreads tunneldist tunneldistmax tunnelcluster tunnelclusterdist ionflowproject ionflowcoords ionflowpath sossmooth"
+	    fprintf(stdout, "hole_features: hydro points batch recolor values props residue batchrecolor hydro3d hydro3dprops batchhydro3dprops hydrorange hydro3dlining batchhydro3drecolor hydro3daverage asymellipse batchasymellipse asymellipsegeo asymthreads asymbox clipgeo esp recolorthreads tunneldist tunneldistmax tunnelcluster tunnelclusterdist ionflowproject ionflowcoords ionflowpath sossmooth"
 #ifdef VMDPATHFINDER_MULTICALL
 	            " nm mesh lobes tunnelserve"
 #endif
@@ -3878,6 +3880,9 @@ int main (int argc, char *argv[])
 	  } else if (strcmp(argv[1], "--asym-threads") == 0) {
 	    asym_threads = atoi(argv[2]); if (asym_threads < 1) asym_threads = 1;
 	    asym_threads_explicit = 1;
+	    argc--; argv++;
+	  } else if (strcmp(argv[1], "--asym-box") == 0) {
+	    asym_nxy_fac = atof(argv[2]); if (!(asym_nxy_fac > 0.0)) asym_nxy_fac = 1.6;
 	    argc--; argv++;
 	  } else if (strcmp(argv[1], "--recolor-threads") == 0) {
 	    recolor_threads = atoi(argv[2]); if (recolor_threads < 1) recolor_threads = 1;

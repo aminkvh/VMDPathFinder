@@ -799,6 +799,7 @@ namespace eval ::VMDPathFinder:: {
         metrics_readout_species {Water K Na Ca}
         ion_flow_shell 3.0
         ion_flow_passage_shell 0.5
+        ellipse_box 1.6
         ion_flow_window {}
         ion_flow_win_mode auto
         ion_flow_win_R {}
@@ -1091,7 +1092,7 @@ proc ::VMDPathFinder::_config_persistent_keys {} {
         sync_visualization show_centerline show_hydro_scalebar
         scalebar_font_color scalebar_corner show_metrics_readout
         plot_swap_axes plot_flip_z heatmap_flip_y mean_swap mean_flip_z hist_swap hist_flip_z draft_stride \
-        ion_flow_swap_xy ion_flow_flip_z ion_flow_shell ion_flow_passage_shell
+        ion_flow_swap_xy ion_flow_flip_z ion_flow_shell ion_flow_passage_shell ellipse_box
         keep_visualization keep_input_pdb hole_fix_atom_names ion_radius_fallback prebuild_surfaces parallel_jobs plot_cache_max
         mean_3d_frame_cap
         metrics_kappa_preset metrics_kappa_custom metrics_water_probe metrics_readout_species
@@ -23803,6 +23804,16 @@ proc ::VMDPathFinder::show_settings_dialog {} {
     # is a spinbox driving VMD's own window as well as the plugin's.
     set ::VMDPathFinder::_settings_d $d
     _update_mesher_rows
+    label $d.ebox_l -text "Ellipse fit box"
+    frame $d.ebox
+    entry $d.ebox.e -textvariable ::VMDPathFinder::state(ellipse_box) -width 4
+    label $d.ebox.u -text "\u00d7 HOLE radius"
+    pack $d.ebox.e $d.ebox.u -side left -padx {0 4}
+    grid $d.ebox_l -row $row -column 0 -sticky w -padx 8 -pady 3
+    grid $d.ebox -row $row -column 1 -columnspan 2 -sticky w -padx 8 -pady 3
+    incr row
+    foreach _ev {<Return> <KP_Enter> <FocusOut>} { bind $d.ebox.e $_ev ::VMDPathFinder::_commit_ellipse_box }
+    add_tooltip $d.ebox.e "Starting half-width of the atom box the ellipse fit searches, as a multiple of the HOLE radius. 1.6 is PoreAnalyser\'s default; a larger box can find a longer ellipse in a wide, irregular pore."
 
     # Radius file kept last: it's the field a user edits least often (only to add
     # a missing VDWR entry), so it sits at the bottom of the binaries section.
@@ -45101,6 +45112,36 @@ proc ::VMDPathFinder::_pa_vdw {element name} {
     return 0.0
 }
 
+proc ::VMDPathFinder::_ellipse_box {} {
+    # PoreAnalyser's n_xy_fac: the ellipse fit starts its neighbour box at this
+    # multiple of the HOLE radius (1.6 = their default). Settings > Engines.
+    variable state
+    set v [expr {[info exists state(ellipse_box)] ? [string trim $state(ellipse_box)] : ""}]
+    if {![string is double -strict $v] || $v <= 0} { return 1.6 }
+    return $v
+}
+
+proc ::VMDPathFinder::_ellipse_box_arg {} {
+    # " --asym-box F" for a binary that takes it. An older binary fixes the box
+    # at 3.0, so "" there only when 3.0 is what is asked; otherwise the bad
+    # flag makes it print usage and the caller falls back to the Tcl fit.
+    set v [_ellipse_box]
+    if {[sos_triangle_has_feature asymbox] || $v != 3.0} { return " --asym-box $v" }
+    return ""
+}
+
+proc ::VMDPathFinder::_commit_ellipse_box {args} {
+    # A new box is a new fit: drop every cached ellipse and redraw.
+    variable state
+    variable last_geom_key
+    set v [string trim $state(ellipse_box)]
+    if {![string is double -strict $v] || $v <= 0} { return }
+    cache_clear _fit_cache asym_cache asym_batch_cache hm_ellipse_bundle_cache
+    set last_geom_key ""
+    catch {apply_display_change}
+    catch {redraw_profile_plot}
+}
+
 proc ::VMDPathFinder::_asym_ellipse_c {atoms sph N} {
     # Offload the ellipse-probe grow to the compiled binary (--asym-ellipse): same atom
     # atoms sidecar, reads back {b a 0} per sphere. Returns "" on any failure
@@ -45124,7 +45165,7 @@ proc ::VMDPathFinder::_asym_ellipse_c {atoms sph N} {
     set thrarg ""
     if {[sos_triangle_has_feature asymthreads]} { set thrarg " --asym-threads [resolve_job_count]" }
     set cmd "[shell_quote $state(sos_triangle_exec)] --hydro-sph [shell_quote $sph] \
-        --hydro3d-atoms [shell_quote $af] --asym-rays $N$thrarg --asym-ellipse [shell_quote $of]$axarg 2>/dev/null"
+        --hydro3d-atoms [shell_quote $af] --asym-rays $N$thrarg[_ellipse_box_arg] --asym-ellipse [shell_quote $of]$axarg 2>/dev/null"
     set ok [expr {![catch {exec sh -c $cmd}]}]
     set raw {}
     # guard the open: an unguarded throw here would skip the temp-file cleanup below AND
@@ -45162,7 +45203,7 @@ proc ::VMDPathFinder::_asym_ellipse_geo_c {atoms sph N} {
     set thrarg ""
     if {[sos_triangle_has_feature asymthreads]} { set thrarg " --asym-threads [resolve_job_count]" }
     set cmd "[shell_quote $state(sos_triangle_exec)] --hydro-sph [shell_quote $sph] \
-        --hydro3d-atoms [shell_quote $af] --asym-rays $N$thrarg --asym-ellipse-geo [shell_quote $of]$axarg 2>/dev/null"
+        --hydro3d-atoms [shell_quote $af] --asym-rays $N$thrarg[_ellipse_box_arg] --asym-ellipse-geo [shell_quote $of]$axarg 2>/dev/null"
     set ok [expr {![catch {exec sh -c $cmd}]}]
     set raw {}
     # same guard as _asym_ellipse_c: never throw past the temp-file cleanup, and always
@@ -45559,7 +45600,7 @@ proc ::VMDPathFinder::_asym_ellipse_tcl {atoms centers radii N} {
         set b [lindex $radii $i]
         set _cproj [expr {$cx*$tx+$cy*$ty+$cz*$tz}]
         set _win [_asym_atoms_window $_sorted_atoms $_cproj 2.0]
-        set nxf 3.0; set pa {}
+        set nxf [_ellipse_box]; set pa {}
         for {set tries 0} {$tries<5} {incr tries} {
             set nxy [expr {$nxf*$b}]; set pa {}; set np 0
             foreach {ax ay az ar} $_win {
@@ -45596,7 +45637,7 @@ proc ::VMDPathFinder::_ellipse_geo_raw_cached {molid frame N} {
     if {![info exists _fit_cache]} { set _fit_cache {} }
     if {![asymmetry_c_available] || ![sos_triangle_has_feature asymellipsegeo]} { return "" }
     set pdv [expr {[info exists ::VMDPathFinder::plot_data_version] ? $::VMDPathFinder::plot_data_version : 0}]
-    set sig "$frame|$molid|$pdv|$state(selection)|ax=[_asym_axis]|N=$N"
+    set sig "$frame|$molid|$pdv|$state(selection)|ax=[_asym_axis]|N=$N|box=[_ellipse_box]"
     if {[dict exists $_fit_cache $sig]} { return [dict get $_fit_cache $sig] }
     set g [_asym_gather $molid $frame]
     if {$g eq ""} { return "" }
@@ -45624,7 +45665,7 @@ proc ::VMDPathFinder::_ellipse_fit_is_cached {molid frame N} {
     variable state
     if {![info exists _fit_cache]} { return 0 }
     set pdv [expr {[info exists ::VMDPathFinder::plot_data_version] ? $::VMDPathFinder::plot_data_version : 0}]
-    set sig "$frame|$molid|$pdv|$state(selection)|ax=[_asym_axis]|N=$N"
+    set sig "$frame|$molid|$pdv|$state(selection)|ax=[_asym_axis]|N=$N|box=[_ellipse_box]"
     return [dict exists $_fit_cache $sig]
 }
 
@@ -45692,7 +45733,7 @@ proc ::VMDPathFinder::_ellipse_geometry {molid frame N} {
         } else {
             set _cproj [expr {$cx*$tx+$cy*$ty+$cz*$tz}]
             set _win [_asym_atoms_window $_sorted_atoms $_cproj 2.0]
-            set nxf 3.0; set pa {}
+            set nxf [_ellipse_box]; set pa {}
             for {set tries 0} {$tries<5} {incr tries} {
                 set nxy [expr {$nxf*$b}]; set pa {}; set np 0
                 foreach {ax ay az ar} $_win {
@@ -46134,7 +46175,7 @@ proc ::VMDPathFinder::_asymmetry_for_frame {frame} {
     # The cache key MUST include every input that changes the result: frame / molid /
     # data-version / selection AND the slicing axis (cvect) and the ray count -
     # otherwise changing cvect silently returns a stale asymmetry profile.
-    set sig "$frame|$molid|$pdv|$state(selection)|ax=$axsig|N=$N"
+    set sig "$frame|$molid|$pdv|$state(selection)|ax=$axsig|N=$N|box=[_ellipse_box]"
     if {[dict exists $asym_cache sig] && [dict get $asym_cache sig] eq $sig} {
         return [list [dict get $asym_cache data] [dict get $asym_cache centers]]
     }
@@ -64128,7 +64169,7 @@ proc ::VMDPathFinder::_asym_batch_sig {molid frames N} {
     variable state
     set pdv [expr {[info exists ::VMDPathFinder::plot_data_version] ? $::VMDPathFinder::plot_data_version : 0}]
     set axsig [_asym_axis]
-    return "$molid|[llength $frames]|[lindex $frames 0]|[lindex $frames end]|$pdv|$state(selection)|ax=$axsig|N=$N"
+    return "$molid|[llength $frames]|[lindex $frames 0]|[lindex $frames end]|$pdv|$state(selection)|ax=$axsig|N=$N|box=[_ellipse_box]"
 }
 
 proc ::VMDPathFinder::_asym_batch_is_cached {molid frames N} {
@@ -64178,7 +64219,9 @@ proc ::VMDPathFinder::_asym_batch_all {molid frames N} {
     _begin_calc
     set _abcode [catch {
     set batch_flag "--batch-asym-ellipse"
-    if {![asymmetry_c_available] || ![sos_triangle_has_feature batchasymellipse]} {
+    # an older binary fixes its box at 3.0; any other box goes per frame (Tcl fit)
+    if {![asymmetry_c_available] || ![sos_triangle_has_feature batchasymellipse]
+            || (![sos_triangle_has_feature asymbox] && [_ellipse_box] != 3.0)} {
         set out [dict create]
         foreach f $frames {
             if {[_abort_requested]} break
@@ -64265,7 +64308,7 @@ proc ::VMDPathFinder::_asym_batch_all {molid frames N} {
     # 3. run the method-appropriate batch flag in parallel (each worker writes its own out)
     set pool_jobs {}
     for {set wi 0} {$wi < $n_workers} {incr wi} {
-        set cmd "[shell_quote $state(sos_triangle_exec)] --asym-rays $N \
+        set cmd "[shell_quote $state(sos_triangle_exec)] --asym-rays $N[_ellipse_box_arg] \
             $batch_flag [shell_quote [lindex $joblists $wi]] 2>/dev/null"
         lappend pool_jobs [list "asymtrend_$wi" [list |sh -c $cmd]]
     }
