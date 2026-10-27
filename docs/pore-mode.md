@@ -311,8 +311,10 @@ entry and exit sides come from the frames just before and after the visit.
 Visits that leave by the end they entered (returned) and visits still open at
 the end (unresolved) are reported separately. The log and CSV also give the
 frame-spacing ratio: the median in-pore step between frames, relative to the
-protein, divided by the local pore radius. Above 0.3 counts may miss events
-(caution); above 0.5 they are unreliable (warning).
+protein, divided by the local pore radius. As an empirical guide from one
+thinning test (a KcsA run at 40 ps per frame), it writes a caution above 0.3
+and a warning above 0.5. Treat the bands as a guide for your system, not a
+guarantee.
 
 **Region passages** count with window ends that follow atoms instead of fixed
 numbers. Give a lower-end and an upper-end selection; each frame, their mean

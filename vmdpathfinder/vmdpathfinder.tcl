@@ -48542,7 +48542,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
     foreach c $occ_cnt { lappend occ_pct [expr {100.0 * $c / $nfd}] }
     set species_label [expr {$species_all ? "All" : $species}]
     lassign [_ion_flow_resolution $_steps [expr {[dict exists $raw rprof] ? [dict get $raw rprof] : {}}]] \
-        _step_med _step_ratio _step_unres
+        _step_med _step_ratio
     set _ncount [dict get $raw nions]
     if {$species_water} { set _ncount [expr {[dict exists $raw nwater] ? [dict get $raw nwater] : 0}] }
     return [dict create nr $nr nz $nz zmin $zmin zmax $zmax r_cut $r_cut r_pass $r_pass zc $zc \
@@ -48551,7 +48551,7 @@ proc ::VMDPathFinder::_ion_flow_aggregate {raw species r_cut nr nz {r_pass ""}} 
         count_per_frame $count_per_frame count_per_species $count_per_species \
         n_cross_up $n_cross_up n_cross_down $n_cross_down \
         trans_up $tr_up trans_down $tr_down trans_net [expr {$tr_up-$tr_down}] trans_incomplete $tr_incomplete trans_recross $tr_recross \
-        step_med $_step_med step_ratio $_step_ratio unresolved $_step_unres \
+        step_med $_step_med step_ratio $_step_ratio \
         region [_ion_flow_region_for $raw $species] \
         nframes $nf nused $nf frame_lo $_f0 rmin_hole $rmin_hole rmax_hole [dict get $raw rmax_hole] \
         species $species_label traces $out_traces stride 1 protein_wrapped [dict get $raw protein_wrapped] box_lz $box_lz \
@@ -48565,8 +48565,9 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     # adjacent frames. Each step is compared with the mean pore radius where
     # it happened (floor 1 A): moving more than the pore's own width between
     # frames, a molecule may have left and re-entered unseen. Returns
-    # {median step, median step/radius, unresolved}; "" "" 0 with no steps.
-    if {![llength $steps]} { return [list "" "" 0] }
+    # {median step, median step/radius}, "" "" with no steps; the verdict is
+    # _ion_flow_resolution_level's, so there is one set of thresholds.
+    if {![llength $steps]} { return [list "" ""] }
     set zs {}; set rs {}
     foreach p [lsort -real -index 0 $rprof] { lappend zs [lindex $p 0]; lappend rs [lindex $p 1] }
     set n [llength $zs]
@@ -48588,7 +48589,7 @@ proc ::VMDPathFinder::_ion_flow_resolution {steps rprof} {
     set h [expr {[llength $d]/2}]
     set med [lindex [lsort -real $d] $h]
     set qm [lindex [lsort -real $q] $h]
-    return [list $med $qm [expr {$qm > 1.0}]]
+    return [list $med $qm]
 }
 
 proc ::VMDPathFinder::_ion_flow_zshift_at {arr f} {
@@ -48823,8 +48824,9 @@ proc ::VMDPathFinder::_ion_flow_trans_label {d} {
 
 proc ::VMDPathFinder::_ion_flow_resolution_level {d} {
     # ok / caution / warning from the median in-pore step (relative to the protein) /
-    # local radius. Thinning a 40-ps KcsA run (results/mironenko_stride_resolution.csv):
-    # counts exact up to a ratio of 0.32, a few events lost from 0.32, half lost at 0.58.
+    # local radius. Empirical, from thinning one 40-ps KcsA run
+    # (results/mironenko_stride_resolution.csv): counts exact up to a ratio of 0.32,
+    # a few events lost from 0.32, half lost at 0.58. A guide, not a guarantee.
     if {![dict exists $d step_ratio] || ![string is double -strict [dict get $d step_ratio]]} { return ok }
     set q [dict get $d step_ratio]
     if {$q > 0.5} { return warning }
@@ -48840,7 +48842,7 @@ proc ::VMDPathFinder::_ion_flow_resolution_note {d} {
         default { return "" }
     }
     return [format "Ion & Water: %s - molecules move a median %.2f \u00c5 between frames inside the\
-        pore, %.2f\u00d7 the local pore radius (counts reliable up to 0.3, unreliable above 0.5)" \
+        pore, %.2f\u00d7 the local pore radius (empirical guide from one thinning test: caution above 0.3, warning above 0.5)" \
         $lead [dict get $d step_med] [dict get $d step_ratio]]
 }
 
@@ -50355,7 +50357,7 @@ proc ::VMDPathFinder::export_ion_flow_csv {} {
     }
     if {[_ion_flow_region_label $d] ne ""} { puts $fh "# [_ion_flow_region_label $d]" }
     if {[dict exists $d step_med] && [dict get $d step_med] ne ""} {
-        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], crossings_resolved=[expr {[dict get $d unresolved] ? 0 : 1}], resolution=[_ion_flow_resolution_level $d]"
+        puts $fh "# in-pore step median=[format %.3f [dict get $d step_med]] A, median step/local radius=[format %.3f [dict get $d step_ratio]], resolution=[_ion_flow_resolution_level $d]"
         set _rn [_ion_flow_resolution_note $d]
         if {$_rn ne ""} { puts $fh "# $_rn" }
     }
