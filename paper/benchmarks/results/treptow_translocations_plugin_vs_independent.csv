@@ -1,12 +1,12 @@
-# generated_by: plugin = Ion & Water _ion_flow_aggregate (treptow_flow_T.tcl); independent = count_permeation_independent.py count()
-# utc: 2026-10-25
-# git: 8021fe1
-# data: Treptow et al. eLife 2024, Zenodo 10938041, Figure02 Kv1.2-2.1 chimera, 91 K+, 4167 frames at 2.4 ns.
-# translocation = a visit to the window (R < r, zlo <= z <= zhi) entering at one end and leaving by the other; entry/exit
-#   side from the frame just before / just after the visit; gaps up to 3 frames bridged (independent --gap 2 = same rule).
-# coords: "protein" = z, R about the protein centre, min-imaged, lab z (independent load_plane lab=True; the plugin's own
-#   frame); "lab origin" = independent default mode (R from the lab z axis through x=y=0, raw lab z).
-# Per ion: CHARMM36m R<3 window, 35 translocating ions, 0 differ between plugin and independent (protein coords).
+# generated_by: review_transport.sh -> transport_plugin.tcl (flow) + count_permeation_independent.py --mode pore [--z-lab]; assemble_transport.py
+# utc: 2026-10-27T15:56:04Z
+# git: 9826b81 (plugin unchanged since; harness review_transport.sh PARTS=treptow)
+# host: amin-System-Product-Name
+# data: Treptow et al. eLife 2024;13:e97696, Zenodo 10.5281/zenodo.10938041, Figure02_Chimera_Trajectory_{AMBER,CHARMM36m}:
+#   Kv1.2-2.1, 91 K+ (resname POT), 4167 frames at 2.4 ns (t = 9.998 us), +200 mV. I = net*e/t, G = I/V.
+# translocation = a visit to the window (R < r, zlo <= z <= zhi) entering at one end and leaving by the other; entry/exit side
+#   from the frames just before/after the visit; gaps up to 3 frames bridged (independent --gap 2 = same rule)
+# coords: protein = R about the protein centre, lab z (the plugin's own frame; independent --z-lab); lab origin = independent default
 forcefield,window,implementation,coords,up,down,net,returned,unresolved
 AMBER,"R<3 z[-6,8]",plugin,protein,0,0,0,3,3
 AMBER,"R<3 z[-6,8]",independent,protein,0,0,0,3,3

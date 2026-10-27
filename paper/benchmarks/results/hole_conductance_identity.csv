@@ -1,15 +1,12 @@
-# generated_by: manual HOLE-conductance identity check (JCIM round-1 reviewer 2, major VII)
-# utc: 2026-10-23T22:23:12Z
-# git: 21970cd+dirty
-# question: is the geometric conductance validated against anything external?
-# answer: it IS HOLE's own model evaluated on HOLE's own geometric factor F. Our
-#   G_ohmic = 100*kappa/F (pore_conductance, vmdpathfinder.tcl:44597); HOLE prints
-#   Gmacro = 1200/F for 1M KCl (rho=1/12 ohm m) i.e. kappa=12 S/m - the same expression.
-#   The check is therefore an identity: our parsed F must equal HOLE's printed F.
-# structure: 1BL8 aligned to z, protein only (ATOM records), simple.rad, sample 0.25, endrad 15
-# note: HOLE prints Gmacro to TWO significant figures (SF2), hence 130 vs the exact 133.75.
-# scope: validates the ohmic term only. The Hall (1975) access term and the
-#   ellipse-area variant are extensions, reported as such.
+# generated_by: conductance_identity.tcl (reviewer 2, major VII)
+# utc: 2026-10-27T15:50:20Z
+# git: 9826b81
+# host: amin-System-Product-Name
+# bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
+# input: 1BL8_z_prot.pdb sha256:98b1ed0a3e6be082  cpoint 60.1115 26.7365 44.5717  cvect 0 0 1  sample 0.25  endrad 15  radius simple.rad
+# one HOLE run, read twice: HOLE's printed F and Gmacro vs the plugin's parse_profile -> profile_cond_F -> pore_conductance
+# G = 100*kappa/F with kappa = 12 S/m (1 M KCl, HOLE's rho = 1/12 ohm m). HOLE prints Gmacro to 2 s.f.
+# scope: the ohmic term only; access, ellipse-area and confinement-corrected variants are extensions
 quantity,ours,hole,note
-F_sum_ds_over_area_per_A,8.97116,8.972,HOLE prints 3 d.p.; identical at that precision
-G_ohmic_pS_1M_KCl,133.76,133.75,exact 1200/F both sides; HOLE's own printout rounds to 130
+F_sum_ds_over_area_per_A,8.97161,8.972,HOLE prints 3 d.p.
+G_ohmic_pS_1M_KCl,133.76,133.75,1200/F on each side; HOLE's printout rounds this to 130 pS
