@@ -61,5 +61,14 @@ line() { printf '%s\n' "$OUT" | grep "^$1 " | head -1; }
 [ "$(line LVL)" = "LVL ok caution warning ok" ] && ok "resolution level: ok to 0.3, caution to 0.5, warning above" || bad "lvl: $(line LVL)"
 [ "$(line NOTE0)" = "NOTE0 []" ] && ok "no log line when frames resolve crossings" || bad "note0: $(line NOTE0)"
 [ "$(line NOTE1)" = "NOTE1 1" ] && [ "$(line NOTE2)" = "NOTE2 1" ] && ok "caution and warning log lines" || bad "note: $(line NOTE1) $(line NOTE2)"
+# The exported CSV header carries one verdict (the 0.3/0.5 level); the old >1.0
+# crossings_resolved flag contradicted it on ratios between 0.5 and 1.0.
+EXP=$(awk '/^proc ::VMDPathFinder::export_ion_flow_csv /,/^}/' "$TCL")
+if printf '%s\n' "$EXP" | grep -q 'resolution=\[_ion_flow_resolution_level \$d\]' \
+   && ! grep -q 'crossings_resolved' "$TCL"; then
+    ok "ion-flow CSV header: one resolution verdict, no crossings_resolved flag"
+else
+    bad "ion-flow CSV header still carries a second verdict"
+fi
 echo "  -> $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

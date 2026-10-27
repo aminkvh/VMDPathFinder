@@ -76,31 +76,38 @@ if {$g eq ""} {
 lassign $g centers radii atoms u sph
 chk "gathered a centerline" [expr {[llength $centers] > 5 ? 1 : 0}] 1
 
-set N 32
-set c [::VMDPathFinder::_asym_ellipse_c $atoms $sph $N]
-chk "C returns one row per slice" [llength $c] [llength $centers]
+# Both paths take the neighbour box from state(ellipse_box): the default 1.6
+# (PoreAnalyser's) and the 3.0 the older binaries fixed.
+foreach box {1.6 3.0} {
+    set ::VMDPathFinder::state(ellipse_box) $box
+    set N 32
+    set c [::VMDPathFinder::_asym_ellipse_c $atoms $sph $N]
+    chk "box $box: C returns one row per slice" [llength $c] [llength $centers]
 
-set k 3
-set t0 [clock milliseconds]
-set t [::VMDPathFinder::_asym_ellipse_tcl $atoms [lrange $centers 0 [expr {$k-1}]] \
-           [lrange $radii 0 [expr {$k-1}]] $N]
-note "Tcl fitted $k slices in [expr {[clock milliseconds]-$t0}] ms"
-chk "Tcl returns one row per requested slice" [llength $t] $k
+    set k 3
+    set t0 [clock milliseconds]
+    set t [::VMDPathFinder::_asym_ellipse_tcl $atoms [lrange $centers 0 [expr {$k-1}]] \
+               [lrange $radii 0 [expr {$k-1}]] $N]
+    note "box $box: Tcl fitted $k slices in [expr {[clock milliseconds]-$t0}] ms"
+    chk "box $box: Tcl returns one row per requested slice" [llength $t] $k
 
-# The C writes its sidecar at float precision, so agreement is ~1e-6, not exact.
-set worst_b 0.0
-set worst_a 0.0
-for {set i 0} {$i < $k} {incr i} {
-    lassign [lindex $c $i] cb ca
-    lassign [lindex $t $i] tb ta
-    set db [expr {abs($cb - $tb)}]
-    set da [expr {abs($ca - $ta)}]
-    if {$db > $worst_b} { set worst_b $db }
-    if {$da > $worst_a} { set worst_a $da }
+    # The C writes its sidecar at float precision, so agreement is ~1e-6, not exact.
+    set worst_b 0.0
+    set worst_a 0.0
+    for {set i 0} {$i < $k} {incr i} {
+        lassign [lindex $c $i] cb ca
+        lassign [lindex $t $i] tb ta
+        # A missing C row must fail here, not compare as 0.
+        if {$cb eq "" || $tb eq ""} { set worst_b 1e9; set worst_a 1e9; break }
+        set db [expr {abs($cb - $tb)}]
+        set da [expr {abs($ca - $ta)}]
+        if {$db > $worst_b} { set worst_b $db }
+        if {$da > $worst_a} { set worst_a $da }
+    }
+    note "worst |db| [format %.3g $worst_b], worst |da| [format %.3g $worst_a]"
+    chk "box $box: minor axis agrees (|d| < 1e-5)" [expr {$worst_b < 1e-5 ? 1 : 0}] 1
+    chk "box $box: major axis agrees (|d| < 1e-5)" [expr {$worst_a < 1e-5 ? 1 : 0}] 1
 }
-note "worst |db| [format %.3g $worst_b], worst |da| [format %.3g $worst_a]"
-chk "minor axis agrees (|d| < 1e-5)" [expr {$worst_b < 1e-5 ? 1 : 0}] 1
-chk "major axis agrees (|d| < 1e-5)" [expr {$worst_a < 1e-5 ? 1 : 0}] 1
 
 catch {mol delete $mid}
 catch {file delete -force $work}
