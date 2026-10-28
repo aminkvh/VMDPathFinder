@@ -6,7 +6,7 @@
 ##   radius profile inside the plugin GUI, and loads the resulting pore surface
 ##   back into VMD for inspection.
 ##
-## VERSION: 1.0.2
+## VERSION: 1.1.0
 ##   Requires Tcl/Tk 8.5 for the GUI (the Tk-free analysis core loads headless
 ##   regardless, via `vmd -dispdev text`), so it runs on VMD 1.9.x as well as
 ##   VMD 2.0+. Rotated axis labels need Tk 8.6 and are stacked instead on 8.5 -
@@ -66,7 +66,7 @@
 ##   and Axel Kohlmeyer.  https://www.ks.uiuc.edu/Research/vmd/plugins/
 ##
 
-package provide vmdpathfinder 1.0.2
+package provide vmdpathfinder 1.1.0
 # Tk is required LAZILY (in show_gui), not here, so the package can be loaded in a
 # headless VMD session (`vmd -dispdev text`) for scripted trajectory analysis where
 # no display / Tk is available. Requiring Tk at load blocked `package require vmdpathfinder`
@@ -87,7 +87,7 @@ namespace eval ::VMDPathFinder:: {
     # any control out of reach.
     variable SIDEBAR_HEIGHT_BUDGET 470
 
-    variable version 1.0.2
+    variable version 1.1.0
     # Optional nightly/dev build tag, appended to the title, console banner and CPU
     # diagnostic ONLY when non-empty. Dated stamps like "2026-07-26w" belong to
     # nightly builds; a tagged release is identified by its version alone, so this is
