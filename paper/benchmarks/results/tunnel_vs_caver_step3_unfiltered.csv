@@ -1,25 +1,25 @@
 # generated_by: bench_tunnel_vs_caver.sh (compare_tunnel_clustering_vs_caver.py)
-# utc: 2026-09-12T05:32:42Z
-# git: 2b14f72
+# utc: 2026-10-28T02:49:56Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# loadavg_at_start: 0.47 0.72 1.15 3/3701 348213
+# loadavg_at_start: 0.50 0.77 2.08 1/2325 3850124
 # engine: /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast --tunnel-cluster
-# bin: sos_triangle_fast sha256:0e73938688ab5542 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# bin: sos_triangle_fast sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # metric: Adjusted Rand Index between CAVER's cluster labels and ours, swept over our thresholds (the two distance definitions differ, so thresholds do not map 1:1)
 # time_s: whole-process wall time
 # ground truth: same guided_example trajectory, CAVER's own tutorial step 3 (clustering_threshold 2.0, BEFORE the tutorial's own 'step 4: adjusting clustering'), RAW/unfiltered -> 10 clusters / 145 tunnels, same-cluster same-frame duplicates present (the harder case). Coordinates + CAVER's own per-tunnel cluster label read verbatim from CAVER's analysis/tunnel_profiles.csv.
 threshold,time_s,our_clusters,ARI_vs_CAVER
-1.0,0.010819,23,0.710871
-1.5,0.010610,11,0.892719
-2.0,0.010017,7,0.468799
-2.5,0.011127,6,0.417192
-3.0,0.010980,4,0.339153
-3.5,0.010237,4,0.339153
-4.0,0.011591,4,0.339153
-5.0,0.010086,2,0.007262
-6.0,0.010018,2,0.007262
-8.0,0.009911,1,0.000000
-10.0,0.009948,1,0.000000
-12.0,0.010105,1,0.000000
-15.0,0.013042,1,0.000000
-20.0,0.009678,1,0.000000
+1.0,0.010734,23,0.710871
+1.5,0.010348,11,0.892719
+2.0,0.010690,7,0.468799
+2.5,0.009825,6,0.417192
+3.0,0.009890,4,0.339153
+3.5,0.012414,4,0.339153
+4.0,0.009868,4,0.339153
+5.0,0.012995,2,0.007262
+6.0,0.010463,2,0.007262
+8.0,0.013367,1,0.000000
+10.0,0.012933,1,0.000000
+12.0,0.010026,1,0.000000
+15.0,0.011309,1,0.000000
+20.0,0.010059,1,0.000000

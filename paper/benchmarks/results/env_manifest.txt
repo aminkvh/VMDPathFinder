@@ -1,20 +1,20 @@
 # VMDPathFinder benchmark environment manifest
-utc            2026-09-12T05:42:07Z
+utc            2026-10-28T00:46:58Z
 host           amin-System-Product-Name
 cpu            AMD Ryzen 7 7700X 8-Core Processor
 nproc          16
-git            2b14f727b14627bc33b81e4db55eb7cd4d477a96
-git_dirty      YES
+git            e55e26ec5b4a3cd64dbf21088e7fc5a53ab1bf99
+git_dirty      no
 vmd            Info) VMD for LINUXAMD64, version 2.0.1a1 (April 21, 2026)
-plugin_version 1.0.1
+plugin_version 1.1.0
 stock_hole     2b8d26534447e7a4
 accel_hole     b9305f533bc47753
 stock_sph_process     eea2d679f7292d53
 accel_sph_process     77eb281c30b12392
 stock_sos_triangle     bb27e926a02ee8a3
-accel_sos_triangle     11ddcbba660cb551
-sos_fast       0e73938688ab5542
+accel_sos_triangle     e2d6101723ef7a8e
+sos_fast       e2d6101723ef7a8e
 rad            /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/rad/simple.rad (d09b6e01434d7f76)
 # OpenMP linkage (accelerated build must show libgomp):
-	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x00007c09ef770000)
-	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x00007d468a2fc000)
+	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x00007c545f3aa000)
+	libgomp.so.1 => /lib/x86_64-linux-gnu/libgomp.so.1 (0x0000722f8bb8c000)

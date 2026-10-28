@@ -1,17 +1,17 @@
-# generated_by: vpf_review_tmp/mironenko_counter (subset.py, plugin_count.tcl, per_ion.py, cmp_events.py) + count_permeation_independent.py; authors' count-ion-permeation.py unchanged
-# utc: 2026-10-23T23:32:23Z
-# git: 4e383b2
-# data: Mironenko, de Groot & Kopec, PNAS Nexus 2024, Zenodo 12623504: KcsA E71A, CHARMM36m, +300 mV
-#   (0.031 V/nm), 25001 frames x 40 ps = 1000 ns, 163 K+ (name POT). Plugin and independent read a
-#   protein+K subset written from the same xtc (6079 atoms, box kept; atom ids mapped back to the full system).
-# Paper reference: E71A C36m 494 events / 26.4 pS summed over 10 replicas (~49 per replica).
-# I = net*e/t with t = 1000 ns (the authors' trjTimes[-1]); G = I/300 mV.
-# Plane counts include in-filter rattling across the plane (up and down); only their net is a passage count.
-# Plugin resolution gate: median in-pore step 0.24 A (window) / 1.15 A (default), 0.24 / 0.23 x the local
-#   radius -> resolved.
+# generated_by: review_transport.sh -> authors' count-ion-permeation.py (unchanged) + count_permeation_independent.py + transport_plugin.tcl (flow); assemble_transport.py
+# utc: 2026-10-28T02:39:10Z
+# git: e55e26e
+# host: amin-System-Product-Name
+# data: Mironenko, de Groot & Kopec, PNAS Nexus 2024, Zenodo 12623504: KcsA E71A, CHARMM36m, +300 mV, 25001 frames x 40 ps,
+#   163 K+ (name POT); plugin and independent read a protein+K subset of the same xtc (transport_subset.py; ids mapped back)
+# observed by per-ion inspection (2026-10-23, counts unchanged since): independent translocations match the authors' 51 events
+#   with the same ion and direction, 37 in the same frame and 14 later by 3-126 frames (end of the in-pore trace vs the authors'
+#   first frame above C78); plane +1 ions: 58354 crosses the midpoint upward at 977.48 ns and is still between the midpoint
+#   and C78 at 1000 ns (in the plugin and independent plane counts), 58500 starts inside the filter at t=0 (independent only)
+# I = net*e/t, t = 1000 ns; G = I/300 mV. Plane counts include in-filter rattling across the plane; only their net is a passage count.
 implementation,window,up,down,net,mol_up,mol_down,recrossings,unresolved,current_pA,conductance_pS,event_level_agreement_with_authors
-authors,"4 regions: z < C75 | C75..mid | mid..C78 | > C78 (mean z of backbone C of resid 75 / 78, per frame); no radial limit; event = ordered 1-2-3-4 pass, periodic wrap allowed",51,0,51,,,,,8.1711,27.2370,"per-ion: reference"
-independent,"translocation: R<4 A from the C75/C78 xy centroid, z in [C75,C78] per frame; trace entering below, leaving above (gap 1)",51,0,51,,,39,4,8.1711,27.2370,"51/51 events same ion and direction; 37 same frame, 14 later by 3-126 frames (event = end of in-pore trace vs authors' first frame above C78)"
-independent,"plane: same per-frame window, plane at the C75/C78 midpoint, gap 3",530,477,53,47,0,,,8.4915,28.3051,"per-ion net equal for 45/47 ions; +1 ion 58354 (incomplete at end), +1 ion 58500 (starts inside the filter at t=0)"
-plugin,"plane: state(ion_flow_window) R<8, z in [1.575,10.435] A above the protein centre (mean C75/C78 offsets, sd 0.28/0.27 A), plane 6.005; gap 3",443,391,52,47,0,,,8.3313,27.7711,"per-ion net equal for 46/47 ions; +1 ion 58354: crosses mid up at 977.48 ns, still between mid and C78 at 1000 ns"
-plugin,"plane: default (HOLE surface + 0.5 A shell, plane at the mean-profile constriction z=52.7, the filter bottom)",843,799,44,42,6,,,7.0496,23.4986,"per-ion net equal for 35/48 ions; the default plane and window are not the authors' filter definition"
+authors,"4 regions: z < C75 | C75..mid | mid..C78 | > C78 (mean z of backbone C of resid 75 / 78, per frame); ordered 1-2-3-4 pass",51,0,51,,,,,8.1711,27.2370,"reference"
+independent,"translocation: R<4 A from the C75/C78 xy centroid, z in [C75,C78] per frame; gap 1",51,0,51,,,39,4,8.1711,27.2370,"51/51 authors' events found with the same ion and direction"
+independent,"plane: same per-frame window, plane at the C75/C78 midpoint, gap 3",530,477,53,47,0,,,8.4915,28.3051,"per-ion net equal for 45/47 ions"
+plugin,"plane: R<8, z in [1.575,10.435] A above the protein centre (mean C75/C78 offsets), plane 6.005; gap 3",443,391,52,47,0,,,8.3313,27.7711,"per-ion net equal for 46/47 ions; T=51/0; step ratio 0.24"
+plugin,"plane: plugin default (HOLE surface + 0.5 A shell, plane at the mean-profile constriction)",843,799,44,42,6,,,7.0496,23.4986,"per-ion net equal for 35/48 ions; T=541/530; step ratio 0.23"

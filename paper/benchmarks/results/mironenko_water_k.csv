@@ -1,3 +1,7 @@
+# generated_by: review_transport.sh -> count_water_k_mironenko.py (authors' 4-region rule on K+ and water O)
+# utc: 2026-10-28T02:39:10Z
+# git: e55e26e
+# host: amin-System-Product-Name
 # count_water_k_mironenko.py: authors' 4-region rule (Mironenko et al. 2024 count-ion-permeation.py) applied to K+ and water O
 trajectory,species,definition,n_molecules,frames,t_ns,up,down,net
 E71A,K,authors_rule,163,25001,1000.00,51,0,51

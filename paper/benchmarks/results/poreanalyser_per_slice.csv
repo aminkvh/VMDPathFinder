@@ -1,6 +1,6 @@
-# generated_by: score_ellipses.py (per-slice .tsv), pore axis aligned to z; systems 1BL8, 4HFI, 7OPH; both tools n_xy_fac 1.6 (defaults), PA --scheduler pool, SciPy 1.12.0
-# utc: 2026-10-26T19:40:00Z
-# git: b7fecbf (plugin ellipse box 1.6)
+# generated_by: assemble_poreanalyser_review.py (per-slice .tsv of score_ellipses.py), both tools at the default box
+# utc: 2026-10-28T01:13:57Z
+# git: e55e26e
 # clr_* = clearance (A) of the ellipse scored at 0.9 b against the box / full-slab atoms; area in A^2
 system,z_A,ours_a_A,pa_a_A,b_A,ours_clr_box,ours_clr_slab,pa_clr_box,pa_clr_slab,ours_area,pa_area
 1BL8,24.822,16.656,16.656,5.330,0.829,0.829,0.829,0.829,278.90,278.90

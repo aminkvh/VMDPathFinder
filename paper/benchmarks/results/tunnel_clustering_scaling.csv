@@ -1,14 +1,14 @@
 # generated_by: bench_tunnel_clustering_scaling.sh
-# utc: 2026-09-12T05:31:34Z
-# git: 2b14f72
+# utc: 2026-10-28T02:48:28Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# loadavg_at_start: 0.49 0.74 1.19 1/3693 346821
+# loadavg_at_start: 0.44 0.79 2.22 1/2326 3847899
 # engine: /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast --tunnel-cluster, threshold=3.0 maxdev=0.0 (plain average-link, CAVER's own convention)
-# bin: sos_triangle_fast sha256:0e73938688ab5542 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# bin: sos_triangle_fast sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # pools: 4 real 1BL8 tunnel centerlines (fixtures/tunnel_clustering/), replicated with small rigid jitter (gen_pool.py) to realistic per-pathway point density (~100 pts/pathway, matching the in-source n=1837 profiling case at ~104 pts/pathway)
 pathways,points,repeats,loadavg,median_s,clusters_found
-10,1020,3,0.49,0.0081,8
-60,6210,3,0.49,0.0115,10
-200,20700,3,0.49,0.0361,23
-600,62100,3,0.49,0.2406,40
-1800,186300,3,0.49,2.0842,61
+10,1020,3,0.44,0.0082,8
+60,6210,3,0.44,0.0130,10
+200,20700,3,0.44,0.0385,23
+600,62100,3,0.44,0.2329,40
+1800,186300,3,0.44,2.0551,61

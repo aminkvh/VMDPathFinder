@@ -1,14 +1,14 @@
-# generated_by: gate_water.py (wet/dry per frame, second system)
-# utc: 2026-10-23T23:00:02Z
-# git: 546f1c5+dirty (vmdpathfinder.tcl diff touches only count_permeation/_ion_flow_* procs; hydration and HOLE paths unchanged)
-# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# nproc: 16  OMP_NUM_THREADS: unset
+# generated_by: review_hydration_gabaa.sh -> hydration2_gate_water.py (wet/dry per frame, second system)
+# utc: 2026-10-28T02:51:09Z
+# git: e55e26e
+# host: amin-System-Product-Name
 # bin: chap sha256:f7bea66d3a072b22 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/scratch_chap_gromacs/chap-install/chap/bin/chap
 # bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
 # system: sim_1.dcd + step5_assembly.hmr.psf (alpha1beta2 GABA_A, 160,772 atoms, 50 frames, 30,600 TIP3; Zenodo 10.5281/zenodo.20705736)
 # chap: chap -f sim1.xtc -s sim1.gro -sel-pathway Protein -sel-solvent 'resname TIP3' -de-bandwidth -1 -hydrophob-fallback 0 -pf-init-probe-pos -0.08 0.09 3.2 -pf-chan-dir-vec 0 0 1  (gro: HSD renamed HIS; fallback affects hydrophobicity only)
 # ours: verify_chap_sim1.tcl, selection protein, cpoint -0.8 0.9 32.0, cvect 0 0 1, endrad 15.0, sample 0.25, water_sel 'resname TIP3', seed 1
-# ours = endrad 5.0 sample 0.5 run (min-radius z within -1.0..-0.5 A in 45/50 frames); gate waters = TIP3 OH2 within r of the CA-centred axis and |dz| of that frame's min-radius z; dry = 0 waters in the r4/dz3 cylinder
+# ours = defaults run (endrad 5.0, sample 0.5); gate waters = TIP3 OH2 within r of the CA-centred axis and |dz| of that frame's
+#   min-radius z; dry = 0 waters in the r4/dz3 cylinder
 frame,ours_min_radius_A,ours_min_z_A,chap_min_radius_A,chap_min_solvent_density_nm3,gate_waters_r4_dz3,gate_waters_r6_dz5
 0,1.768,-15.25,1.762,0.0002,1,10
 1,1.590,-10.25,1.589,14.7059,3,8

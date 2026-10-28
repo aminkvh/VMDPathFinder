@@ -1,22 +1,20 @@
-# generated_by: plugin = Ion & Water (_ion_flow_scan with water + _ion_flow_aggregate, water_T.tcl); independent = count_permeation_independent.py load_plane(lab=True) + count(gap=2)
-# utc: 2026-10-25
-# git: 8021fe1
-# data: Mironenko, de Groot & Kopec 2024 (Zenodo 12623504), CHARMM36m, +300 mV, 40 ps/frame; subsets protein + K+ (POT) + water O.
-#   T75A/E71A: t75ae71a_charmm36m.gro + xtc, 25001 frames. G77A/E71A: CHARMM36m 300mV/k production.tpr (49,670 atoms; the deposited .gro has 50,042) + xtc, 50001 frames.
-# window: R < 5 A, z between the mean z of backbone C of residues 75 and 78 in frame 0 (tpr numbering 50 146 242 338 / 53 149 245 341), plane at the midpoint.
-# translocation: entry/exit side from the frames just before/after the visit, gaps up to 3 frames bridged.
-# plugin z is placed at the nearest HOLE-analysed frame (every 250 / 500 frames); the independent script uses every frame's protein centre.
-#   Translocations agree exactly; returned/unresolved visits depend on that placement (they sit on the window ends):
-#   with HOLE on every frame (plugin_every_frame, T75A/E71A; frame 0 duplicated by the PDB) they come within 1-2 %.
-#   The plugin's step/radius ratio also moved with the HOLE stride (0.27 at every 250th frame, 0.49 every frame) - open item.
+# generated_by: review_transport.sh -> transport_plugin.tcl (water) + transport_mutant_independent.py; assemble_transport.py
+# utc: 2026-10-28T02:39:10Z
+# git: e55e26e
+# host: amin-System-Product-Name
+# data: Mironenko et al. 2024 (Zenodo 12623504), CHARMM36m, +300 mV, 40 ps/frame; subsets protein + K+ + water O
+# window: R < 5 A, z between the mean z of backbone C of residues 75 and 78 in frame 0 (G77A/E71A tpr numbering), plane at the midpoint
+# translocation: entry/exit side from the frames just before/after the visit, gaps up to 3 frames bridged
+# directional translocations must agree; returned/unresolved visits sit on the window ends and depend on where the plugin
+#   places molecules (the HOLE-analysed frames: every 250th / 500th, or every frame for plugin_every_frame)
 mutant,species,implementation,up,down,returned,unresolved
 T75A/E71A,K,plugin,2,0,374,4
-T75A/E71A,K,independent,2,0,548,4
 T75A/E71A,water,plugin,1,0,491,10
+T75A/E71A,K,independent,2,0,548,4
 T75A/E71A,water,independent,1,0,910,6
 T75A/E71A,K,plugin_every_frame,2,0,545,4
 T75A/E71A,water,plugin_every_frame,1,0,899,5
 G77A/E71A,K,plugin,5,1,479,4
-G77A/E71A,K,independent,5,1,773,4
 G77A/E71A,water,plugin,7,0,2498,150
+G77A/E71A,K,independent,5,1,773,4
 G77A/E71A,water,independent,7,0,4034,131

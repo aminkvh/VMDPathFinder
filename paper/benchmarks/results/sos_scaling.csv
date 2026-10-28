@@ -1,20 +1,20 @@
 # generated_by: reproduce.sh stage=sos-sweep
-# utc: 2026-09-12T05:27:15Z
-# git: 2b14f72+dirty
+# utc: 2026-10-28T02:39:46Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
 # nproc: 16  OMP_NUM_THREADS: unset
 # repeats: 3
-# loadavg_at_start: 0.42 0.62 1.30  allow_noisy: 0
-# load_at_start: 0.42 0.62 1.30
-# bin: sph_process sha256:c8b9b75c2f38f549 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/exe/sph_process
-# bin: sos_triangle_fast sha256:0e73938688ab5542 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# loadavg_at_start: 0.45 1.48 3.39  allow_noisy: 0
+# load_at_start: 0.45 1.48 3.39
+# bin: sph_process sha256:eea2d679f7292d53 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/exe/sph_process
+# bin: sos_triangle_fast sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # bin: sos_triangle.c sha256:7a31826487b31cf3 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/upstream/sos_triangle.c
 # upstream = HOLE 2 sos_triangle built from its own source with MAX_COORD raised to the fork's; identical = byte-identical .plot output
 dotden,triangles,upstream_ms,fast_ms,speedup,identical
-10,2810,100.0,29.6,3.4,yes
-15,6390,444.7,50.0,8.9,yes
-20,11280,1315.0,77.0,17.1,yes
-25,17354,3042.5,109.9,27.7,yes
-30,24570,6056.5,150.4,40.3,yes
-35,33388,11107.8,198.1,56.1,yes
-40,43707,18874.1,257.0,73.4,yes
+10,2810,99.1,29.3,3.4,yes
+15,6390,443.8,48.5,9.2,yes
+20,11280,1318.3,76.3,17.3,yes
+25,17354,3080.9,107.2,28.7,yes
+30,24570,6104.4,146.1,41.8,yes
+35,33388,11195.6,193.7,57.8,yes
+40,43707,18834.3,258.9,72.7,yes

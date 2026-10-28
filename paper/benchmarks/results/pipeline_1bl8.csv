@@ -1,24 +1,24 @@
 # generated_by: reproduce.sh stage=pipeline-1bl8
-# utc: 2026-09-12T05:48:17Z
-# git: 2b14f72+dirty
+# utc: 2026-10-28T02:38:51Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
 # nproc: 16  OMP_NUM_THREADS: unset
 # repeats: 3
-# loadavg_at_start: 0.40 0.66 0.78  allow_noisy: 0
-# load_at_start: 0.40 0.66 0.78
+# loadavg_at_start: 0.47 1.66 3.55  allow_noisy: 0
+# load_at_start: 0.47 1.66 3.55
 # bin: hole sha256:2b8d26534447e7a4 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/exe/hole
 # bin: sph_process sha256:eea2d679f7292d53 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/exe/sph_process
 # bin: sos_triangle sha256:bb27e926a02ee8a3 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/stock_build/hole2/exe/sos_triangle
 # bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
 # bin: sph_process sha256:77eb281c30b12392 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/sph_process
-# bin: sos_triangle sha256:11ddcbba660cb551 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/sos_triangle
-# bin: simple.rad sha256:d09b6e01434d7f76 /tmp/vmdpathfinder_repro_rad_359928/simple.rad
+# bin: sos_triangle sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/sos_triangle
+# bin: simple.rad sha256:d09b6e01434d7f76 /tmp/vmdpathfinder_repro_rad_3831337/simple.rad
 # 1BL8 (KcsA) protein atoms, raseed 1, cpoint/cvect from the committed case-study run
 # builds: stock = HOLE 2.2 source unpatched, built at -O2; accel_1t = ours, one OpenMP thread; accel_nt = ours, OpenMP on. A ratio is printed only where the .sph files are byte-identical and the triangle counts match
 method,build,hole_s,sph_process_s,sos_triangle_s,total_s,triangles
-circular,stock,0.0511,0.0130,0.7105,0.7746,8746
-circular,accel_1t,0.0503,0.0134,0.0826,0.1463,8746
-circular,accel_nt,0.0508,0.0123,0.0844,0.1475,8746
-connolly,stock,0.2788,0.2670,2.0124,2.5582,17809
-connolly,accel_1t,0.2905,0.2663,0.1308,0.6876,17809
-connolly,accel_nt,0.1292,0.0767,0.1305,0.3364,17809
+circular,stock,0.0493,0.0133,0.7161,0.7787,8746
+circular,accel_1t,0.0501,0.0138,0.0835,0.1474,8746
+circular,accel_nt,0.0508,0.0124,0.0831,0.1463,8746
+connolly,stock,0.2793,0.2648,2.0389,2.5830,17809
+connolly,accel_1t,0.2886,0.2652,0.1265,0.6803,17809
+connolly,accel_nt,0.1278,0.0766,0.1289,0.3333,17809

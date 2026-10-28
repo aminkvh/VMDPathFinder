@@ -1,25 +1,25 @@
 # generated_by: bench_tunnel_vs_caver.sh (compare_tunnel_clustering_vs_caver.py)
-# utc: 2026-09-12T05:32:42Z
-# git: 2b14f72
+# utc: 2026-10-28T02:49:56Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# loadavg_at_start: 0.47 0.72 1.15 1/3701 347934
+# loadavg_at_start: 0.50 0.77 2.08 5/2324 3849844
 # engine: /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast --tunnel-cluster
-# bin: sos_triangle_fast sha256:0e73938688ab5542 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
+# bin: sos_triangle_fast sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # metric: Adjusted Rand Index between CAVER's cluster labels and ours, swept over our thresholds (the two distance definitions differ, so thresholds do not map 1:1)
 # time_s: whole-process wall time
 # ground truth: CAVER 3.0.2's own bundled guided_example (LinB, 50-frame MD trajectory), step 5 (final tutorial step), average_link, clustering_threshold 4.0 (fixtures/tunnel_vs_caver/caver_guided_example_config.txt) -> 5 clusters / 83 tunnels, POST cheapest-per-cluster-per-snapshot filter (one tunnel per cluster per frame - the easier case, no within-frame ambiguity survives). Coordinates + CAVER's own per-tunnel cluster label read verbatim from CAVER's analysis/tunnel_profiles.csv.
 threshold,time_s,our_clusters,ARI_vs_CAVER
-1.0,0.008825,13,0.426752
-1.5,0.008303,8,0.498080
-2.0,0.008391,7,0.847780
-2.5,0.008215,5,1.000000
-3.0,0.008828,4,0.912001
-3.5,0.007831,4,0.912001
-4.0,0.008403,4,0.912001
-5.0,0.008248,3,0.086054
-6.0,0.008209,2,0.085523
-8.0,0.008281,1,0.000000
-10.0,0.008805,1,0.000000
-12.0,0.011327,1,0.000000
-15.0,0.009256,1,0.000000
-20.0,0.008349,1,0.000000
+1.0,0.008612,13,0.426752
+1.5,0.008451,8,0.498080
+2.0,0.008209,7,0.847780
+2.5,0.008249,5,1.000000
+3.0,0.010997,4,0.912001
+3.5,0.010726,4,0.912001
+4.0,0.009211,4,0.912001
+5.0,0.008309,3,0.086054
+6.0,0.008160,2,0.085523
+8.0,0.011040,1,0.000000
+10.0,0.010942,1,0.000000
+12.0,0.008314,1,0.000000
+15.0,0.009326,1,0.000000
+20.0,0.008008,1,0.000000

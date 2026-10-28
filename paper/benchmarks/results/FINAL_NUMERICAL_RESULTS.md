@@ -1,3 +1,32 @@
+# FINAL NUMERICAL RESULTS - VMDPathFinder 1.1.0 re-baseline (2026-10-27)
+
+**Benchmarked commit `e55e26e`** (tag v1.1.0 adds only these result files), clean tree, every
+`reproduce.sh` stage run in sequence on an idle machine into a separate directory, then copied
+here. Every CSV header records its commit and the sha256 of each binary it ran. Engines: fresh
+`native/build.sh` output in `native/build/`; release regression suite 26/26 groups, unit 35/35.
+
+| Result (CSV) | v1.1.0 value | Change vs the round-1 drafts |
+|---|---|---|
+| End to end, 50 frames (endtoend) | plugin accelerated 0.845 s, stock 1.24 s; bare HOLE parallel 0.67 s; mdahole2 86.9 s (102.9x) | was 0.838 / 1.22 / 0.69 / 87.6 s (104.5x) |
+| Surface (endtoend) | accelerated + csg mesher 1.29 s; mdahole2 122.6 s | within 2 % |
+| Scaling (scaling) | 15 workers 6.52x (0.842 s) | - |
+| MOLE 2.5.24.6.8 (tunnel_vs_mole2) | 1BL8 13.7x, 1MXT 9.4x, 1ERI 15.8x; auto origin 12.6x / 9.05x; tunnel counts identical | - |
+| MOLE start-up (mole2_startup_cost) | fixed 169 ms, compute-only 6.2x vs 9.2-15.1x end to end; 1GRM predicted 0.213 s, measured 0.20 s | was 180 ms, 6.3x, 9.3-14.8x, 0.223/0.21 s |
+| Tcl vs compiled tunnel search (tunnel_tcl_vs_compiled) | 1BL8 175x, 1MXT 253x | was 173x / 231x |
+| PoreAnalyser, aligned (poreanalyser_review) | 99.5 % (1BL8), 99.7 % (GLIC), 100 % (NaK S-DI); 99.2-100 % at box 3.0 | unchanged |
+| CHAP example (chap_correlation, chap_barrier) | r 0.998 / 0.986 / 0.968 / 0.952; barrier CHAP-compatible 2.02, default 6.05 kcal/mol | 4th-5th decimal only |
+| GABA_A hydration (*_gabaa) | 27/50 dry frames; correlations as before | data rows unchanged |
+| Conductance identity (hole_conductance_identity) | F 8.97251 vs HOLE 8.973; G 133.74 vs 133.73 pS | new HOLE run (MC seed) |
+| Transport (treptow_*, mironenko_*, region_*, water_*) | all 37 checks: plugin = independent = authors' 51/0 | counts unchanged |
+| CAVER LinB / DhaA (tunnel_vs_caver*) | cluster counts and ARI unchanged | timings within a few % |
+
+Not re-run here: `tunnel_vs_caver_timing.csv` (needs a local CAVER 3.0.2 run; previous values
+kept), and the pre-review probes `capsule_f4.csv`, `o2_rebuild.csv`, `upstream_capability.csv`.
+The superseded unaligned 1BL8 comparison (`poreanalyser_ellipse.csv`) was re-run; PoreAnalyser's
+own scheduler makes it vary run to run, which is why the paper now uses `poreanalyser_review.csv`.
+
+---
+
 # FINAL NUMERICAL RESULTS - VMDPathFinder 1.0.1 freeze, Nelder-Mead search + marching-cubes mesher
 
 **Refresh 2026-09-13 (commit `0fbab73`, tag v1.0.2 + 5):** the three Tier-2 stages

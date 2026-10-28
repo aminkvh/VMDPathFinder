@@ -1,16 +1,15 @@
-# generated_by: interior_barrier.py (second system, R2-III c/d)
-# utc: 2026-10-23T23:00:02Z
-# git: 546f1c5+dirty (vmdpathfinder.tcl diff touches only count_permeation/_ion_flow_* procs; hydration and HOLE paths unchanged)
-# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# nproc: 16  OMP_NUM_THREADS: unset
+# generated_by: review_hydration_gabaa.sh -> hydration2_interior_barrier.py (second system, R2-III c/d)
+# utc: 2026-10-28T02:51:09Z
+# git: e55e26e
+# host: amin-System-Product-Name
 # bin: chap sha256:f7bea66d3a072b22 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/scratch_chap_gromacs/chap-install/chap/bin/chap
 # bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
 # system: sim_1.dcd + step5_assembly.hmr.psf (alpha1beta2 GABA_A, 160,772 atoms, 50 frames, 30,600 TIP3; Zenodo 10.5281/zenodo.20705736)
 # chap: chap -f sim1.xtc -s sim1.gro -sel-pathway Protein -sel-solvent 'resname TIP3' -de-bandwidth -1 -hydrophob-fallback 0 -pf-init-probe-pos -0.08 0.09 3.2 -pf-chan-dir-vec 0 0 1  (gro: HSD renamed HIS; fallback affects hydrophobicity only)
 # ours: verify_chap_sim1.tcl, selection protein, cpoint -0.8 0.9 32.0, cvect 0 0 1, endrad 15.0, sample 0.25, water_sel 'resname TIP3', seed 1
-# run A = track_cpoint=1 (chapmode = CHAP-compatible, default = CHAP mode off on same HOLE run); run B = track_cpoint=0, plugin defaults only (chapmode and default rows identical by construction)
-# run A (track_cpoint=1). Interior = raw mean HOLE radius < 4 A (42 bins). Every G = -kT ln(rho/rho_bulk) with the SAME measured bulk 0.032712 A^-3, kT 0.61603 kcal/mol (310 K). Raw-count axis registered on radius only (shift -31.0 A, r=0.9993); CHAP via compare_chap.py registration (sigma -1, delta 5.9).
-# raw count: 1 interior bin is EMPTY (abs z +0.5, rho=0, G=+inf) and is excluded from the peak search; the finite peak is the bin beside it
+# run A (track_cpoint=1). Interior = raw mean HOLE radius < 4 A. G = -kT ln(rho/rho_bulk) with one measured bulk for every profile.
+# raw-count axis registered on radius only (shift -31.0 A); CHAP via compare_chap.py registration (sigma -1, delta 5.9 A)
+# an empty interior bin (rho = 0, G = +inf) is excluded from the peak search
 profile,barrier_z_ours_A,barrier_z_abs_A,G_peak_kcal_mol_vs_measured_bulk,n_interior_bins
 "raw count (kernel-free)",-31.5,-0.5,1.448,42
 "VMDPathFinder CHAP-compatible",-44.5,-13.5,0.383,42

@@ -1,6 +1,6 @@
 # generated_by: conductance_identity.tcl (reviewer 2, major VII)
-# utc: 2026-10-27T15:50:20Z
-# git: 9826b81
+# utc: 2026-10-28T01:14:38Z
+# git: e55e26e
 # host: amin-System-Product-Name
 # bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
 # input: 1BL8_z_prot.pdb sha256:98b1ed0a3e6be082  cpoint 60.1115 26.7365 44.5717  cvect 0 0 1  sample 0.25  endrad 15  radius simple.rad
@@ -8,5 +8,5 @@
 # G = 100*kappa/F with kappa = 12 S/m (1 M KCl, HOLE's rho = 1/12 ohm m). HOLE prints Gmacro to 2 s.f.
 # scope: the ohmic term only; access, ellipse-area and confinement-corrected variants are extensions
 quantity,ours,hole,note
-F_sum_ds_over_area_per_A,8.97161,8.972,HOLE prints 3 d.p.
-G_ohmic_pS_1M_KCl,133.76,133.75,1200/F on each side; HOLE's printout rounds this to 130 pS
+F_sum_ds_over_area_per_A,8.97251,8.973,HOLE prints 3 d.p.
+G_ohmic_pS_1M_KCl,133.74,133.73,1200/F on each side; HOLE's printout rounds this to 130 pS

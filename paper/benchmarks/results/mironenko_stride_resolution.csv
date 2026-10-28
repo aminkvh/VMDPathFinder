@@ -1,3 +1,7 @@
+# generated_by: review_transport.sh -> stride_resolution_test.py (frame-spacing thinning test, E71A)
+# utc: 2026-10-28T02:39:10Z
+# git: e55e26e
+# host: amin-System-Product-Name
 # stride_resolution_test.py  top=/media/amin/10TB_2/WORK/vpf_review_tmp/traj_search/mironenko/E71A/CHARMM36m/e71a_charmm36m.gro  traj=/media/amin/10TB_2/WORK/mironenko_data/ExampleTrajectories/E71A.CHARMM36m.K.xtc  frames=25001  dt=40.0 ps
 # ratio = median |dz| of K+ in the filter at both ends of a kept step, z relative to the protein centre, / max(1 A, local radius ~1 A)
 # ratio_lab = the same with lab z (adds the protein's own motion; the submitted-revision CSV reported this)

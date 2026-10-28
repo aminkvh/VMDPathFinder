@@ -1,34 +1,34 @@
 # generated_by: reproduce.sh stage=chap
-# utc: 2026-10-25T17:58:04Z
-# git: 9f4db3b+dirty (default pass re-run with Track CPOINT off)
+# utc: 2026-10-28T02:50:06Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
 # nproc: 16  OMP_NUM_THREADS: unset
 # repeats: 3
-# loadavg_at_start: 3.11 7.86 8.12  allow_noisy: 1
-# load_at_start: 3.11 7.86 8.12
+# loadavg_at_start: 1.60 1.01 2.14  allow_noisy: 0
+# load_at_start: 1.60 1.01 2.14
 # bin: chap sha256:f7bea66d3a072b22 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/scratch_chap_gromacs/chap-install/chap/bin/chap
 metric,n,statistic,value,units
-min_radius_per_frame,11,pearson_r,0.998341,
+min_radius_per_frame,11,pearson_r,0.99834,
 min_radius_per_frame,11,spearman_r,1,
-min_radius_per_frame,11,rmsd,0.0112461,A
+min_radius_per_frame,11,rmsd,0.0112488,A
 min_radius_per_frame,11,mean_ours,2.06829,A
 min_radius_per_frame,11,mean_chap,2.06834,A
 min_radius_per_frame,11,frames,none,
 registration,39,sigma,-1,
 registration,39,delta,-3,A
-registration,39,radius_pearson_r,0.985819,
-radius,39,pearson_r,0.985819,
+registration,39,radius_pearson_r,0.985815,
+radius,39,pearson_r,0.985815,
 radius,39,spearman_r,0.980819,
-radius,39,rmsd,0.140375,A
-density,39,pearson_r,0.952111,
+radius,39,rmsd,0.140387,A
+density,39,pearson_r,0.951985,
 density,39,spearman_r,0.944332,
-density,39,rmsd,0.146735,rho/rho_bulk
-energy,39,pearson_r,0.96833,
+density,39,rmsd,0.146798,rho/rho_bulk
+energy,39,pearson_r,0.968316,
 energy,39,spearman_r,0.953239,
-energy,39,rmsd,0.226769,kcal/mol
-density2,41,pearson_r,0.883719,
+energy,39,rmsd,0.226909,kcal/mol
+density2,41,pearson_r,0.883685,
 density2,41,spearman_r,0.833798,
-density2,41,rmsd,0.200394,rho/rho_bulk
-energy2,41,pearson_r,0.952886,
+density2,41,rmsd,0.20042,rho/rho_bulk
+energy2,41,pearson_r,0.952885,
 energy2,41,spearman_r,0.867596,
 energy2,41,rmsd,1.32817,kcal/mol
