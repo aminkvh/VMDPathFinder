@@ -26,7 +26,10 @@ if {$exe eq ""} {
     if {[file executable $cand]} { set ::VMDPathFinder::state(conn_lobes_exec) $cand; set exe $cand }
 }
 if {$exe eq ""} { puts "SKIP: conn_lobes_engine - no conn_lobes binary (sh native/build.sh)"; done }
-note "conn_lobes = $exe"
+# Its subcommand with it: the fallback run below switches the engine off, and
+# a later tool_args would then return nothing for this binary.
+set exe_args [::VMDPathFinder::tool_args conn_lobes]
+note "conn_lobes = $exe $exe_args"
 if {![file readable $PDB] || ![file readable $RAD]} { puts "SKIP: conn_lobes_engine - no 1GRM fixture"; done }
 if {![file executable $::VMDPathFinder::state(hole_exec)]} { puts "SKIP: conn_lobes_engine - no HOLE binary"; done }
 
@@ -223,12 +226,12 @@ for {set k 1} {$k < 9} {incr k} {
     }
 }
 close $fh
-# The fallback run above swapped tool_path out; point the state key at the
-# binary this file already resolved so the check cannot inherit that.
-# The binary directly: the fallback run above swapped tool_path out.
+# The binary and subcommand resolved at the top: the fallback run above swapped tool_path out.
 set _nl 0
 set _azs {}
-if {![catch {exec $exe {*}[::VMDPathFinder::tool_args conn_lobes] classify $synth 0 0 0 0 0 1 2.0} _out]} {
+if {[catch {exec $exe {*}$exe_args classify $synth 0 0 0 0 0 1 2.0} _out]} {
+    note "classify failed: [lindex [split $_out \n] 0]"
+} else {
     set _ls [split $_out "\n"]
     for {set _i 0} {$_i < [llength $_ls]} {incr _i} {
         if {![string match "LOBE *" [lindex $_ls $_i]]} continue
