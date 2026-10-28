@@ -8,10 +8,13 @@ here. Every CSV header records its commit and the sha256 of each binary it ran. 
 | Result (CSV) | v1.1.0 value | Change vs the round-1 drafts |
 |---|---|---|
 | End to end, 50 frames (endtoend) | plugin accelerated 0.845 s, stock 1.24 s; bare HOLE parallel 0.67 s; mdahole2 86.9 s (102.9x) | was 0.838 / 1.22 / 0.69 / 87.6 s (104.5x) |
-| Surface (endtoend) | accelerated + csg mesher 1.29 s; mdahole2 122.6 s | within 2 % |
-| Scaling (scaling) | 15 workers 6.52x (0.842 s) | - |
-| MOLE 2.5.24.6.8 (tunnel_vs_mole2) | 1BL8 13.7x, 1MXT 9.4x, 1ERI 15.8x; auto origin 12.6x / 9.05x; tunnel counts identical | - |
+| Surface (endtoend) | dot-based 2.05 s (59.9x); marching cubes 1.29 s (95.1x) vs mdahole2 122.6 s | was 60.2x / 97.2x |
+| Density sweep (sos_scaling) | 3.4x to 72.7x, byte-identical at every density | was 3.4-73.4x |
+| Scaling (scaling) | 15 workers 6.52x (0.842 s) | was 6.51x |
+| Real tunnel pool clustering (tunnel_clustering_real_pool) | compiled 0.61 s vs Tcl 16.3 s (27.0x), 394 clusters both | was 27.7x |
+| MOLE 2.5.24.6.8 (tunnel_vs_mole2) | 1BL8 13.6x, 1MXT 9.2x, 1ERI 15.1x; auto origin 12.8x / 8.85x; tunnel counts identical | was 9.3-14.8x |
 | MOLE start-up (mole2_startup_cost) | fixed 169 ms, compute-only 6.2x vs 9.2-15.1x end to end; 1GRM predicted 0.213 s, measured 0.20 s | was 180 ms, 6.3x, 9.3-14.8x, 0.223/0.21 s |
+| Single-frame steps (single_frame_steps) | Nelder-Mead 36 ms vs HOLE 123 ms (3.5x, 8 threads); mesher 23 ms vs 93 ms (4.0x); min radius 1.769 vs 1.765 A | was 3.3x / 4.0x; first scripted run (bench_single_frame_steps.sh) |
 | Tcl vs compiled tunnel search (tunnel_tcl_vs_compiled) | 1BL8 175x, 1MXT 253x | was 173x / 231x |
 | PoreAnalyser, aligned (poreanalyser_review) | 99.5 % (1BL8), 99.7 % (GLIC), 100 % (NaK S-DI); 99.2-100 % at box 3.0 | unchanged |
 | CHAP example (chap_correlation, chap_barrier) | r 0.998 / 0.986 / 0.968 / 0.952; barrier CHAP-compatible 2.02, default 6.05 kcal/mol | 4th-5th decimal only |
