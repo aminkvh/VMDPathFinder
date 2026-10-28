@@ -1,14 +1,14 @@
 # generated_by: bench_single_frame_steps.sh
-# utc: 2026-10-28T03:08:07Z
-# git: 9d508aa
-# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor  loadavg: 0.71 1.46 2.79
+# utc: 2026-10-28T15:11:54Z
+# git: e55e26e
+# host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor  loadavg: 0.37 0.48 0.36
 # bin: hole sha256:b9305f533bc47753 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/hole
 # bin: sph_process sha256:77eb281c30b12392 /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/sph_process
 # bin: sos_triangle sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/build/sos_triangle
 # system: sim_1.dcd frame 0, selection 'protein or glycan' (27768 atoms); cpoint -0.8 0.9 32.0, cvect 0 0 1, sample 0.25, endrad 15.0
 # times: wall clock per full process invocation (date +%s%N), median of 5
 # surface: dot density 15 (sph_process -sos + sos_triangle -s); mesher grid 1.4/0.7; medians of 5 after one warm-up
-# minimum radius: HOLE 1.765 A, Nelder-Mead 1.76926 A
+# minimum radius: HOLE 1.768 A, Nelder-Mead 1.76926 A
 step,reference,reference_s,plugin_1thread_s,plugin_8threads_s,speedup_1thread,speedup_8threads
-pore_search,HOLE Monte Carlo,0.1230,0.0806,0.0355,1.53,3.46
-surface,sph_process + sos_triangle,0.0930,0.0637,0.0234,1.46,3.97
+pore_search,HOLE Monte Carlo,0.1235,0.0802,0.0350,1.54,3.53
+surface,sph_process + sos_triangle,0.0896,0.0640,0.0235,1.40,3.81

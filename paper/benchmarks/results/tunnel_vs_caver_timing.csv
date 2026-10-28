@@ -1,13 +1,13 @@
 # generated_by: bench_tunnel_vs_caver_timing.sh
-# utc: 2026-10-28T14:51:58Z
-# git: 4c41b84
+# utc: 2026-10-28T15:11:54Z
+# git: e55e26e
 # host: amin-System-Product-Name  cpu: AMD Ryzen 7 7700X 8-Core Processor
-# loadavg_at_start: 0.12 0.16 0.13 1/2341 353639
+# loadavg_at_start: 0.37 0.48 0.36 1/2386 375515
 # bin: sos_triangle_fast sha256:e2d6101723ef7a8e /media/amin/10TB_2/WORK/vmd_hold_plugin_DEV/native/sos_triangle_fast
 # pool: 145 real LinB pathways (fixtures/tunnel_vs_caver/caver_guided_example_step3_tunnel_profiles.csv, CAVER's own guided_example step-3 checkpoint)
 # ours: full process invocation of sos_triangle_fast --tunnel-cluster, median of 3
 # caver_stage_only: real CAVER 3.0.2, load_tunnels=yes against the identical pre-computed tunnels (CAVER_TUNNELS), 'cluster tunnels:' line from its own data/times.txt, median of 3 - EXCLUDES JVM startup and tunnel deserialization
 # caver_full_process: same CAVER invocation, full wall time (date +%s.%N around the java call), median of 3 - INCLUDES JVM startup
 threshold,ours_s,caver_stage_only_s,caver_full_process_s,ratio_stage_only,ratio_full_process
-2.0,0.012662,0.157184,0.280237,12.41,22.13
-4.0,0.014494,0.147645,0.258568,10.19,17.84
+2.0,0.010975,0.147138,0.260189,13.41,23.71
+4.0,0.014293,0.149504,0.262144,10.46,18.34

@@ -14,7 +14,7 @@ here. Every CSV header records its commit and the sha256 of each binary it ran. 
 | Real tunnel pool clustering (tunnel_clustering_real_pool) | compiled 0.61 s vs Tcl 16.3 s (27.0x), 394 clusters both | was 27.7x |
 | MOLE 2.5.24.6.8 (tunnel_vs_mole2) | 1BL8 13.6x, 1MXT 9.2x, 1ERI 15.1x; auto origin 12.8x / 8.85x; tunnel counts identical | was 9.3-14.8x |
 | MOLE start-up (mole2_startup_cost) | fixed 169 ms, compute-only 6.2x vs 9.2-15.1x end to end; 1GRM predicted 0.213 s, measured 0.20 s | was 180 ms, 6.3x, 9.3-14.8x, 0.223/0.21 s |
-| Single-frame steps (single_frame_steps) | Nelder-Mead 36 ms vs HOLE 123 ms (3.5x, 8 threads); mesher 23 ms vs 93 ms (4.0x); min radius 1.769 vs 1.765 A | was 3.3x / 4.0x; first scripted run (bench_single_frame_steps.sh) |
+| Single-frame steps (single_frame_steps) | Nelder-Mead 35 ms vs HOLE 124 ms (3.5x, 8 threads); mesher 24 ms vs 90 ms (3.8x); min radius 1.769 vs 1.768 A | was 3.3x / 4.0x; first scripted run (bench_single_frame_steps.sh) |
 | Tcl vs compiled tunnel search (tunnel_tcl_vs_compiled) | 1BL8 175x, 1MXT 253x | was 173x / 231x |
 | PoreAnalyser, aligned (poreanalyser_review) | 99.5 % (1BL8), 99.7 % (GLIC), 100 % (NaK S-DI); 99.2-100 % at box 3.0 | unchanged |
 | CHAP example (chap_correlation, chap_barrier) | r 0.998 / 0.986 / 0.968 / 0.952; barrier CHAP-compatible 2.02, default 6.05 kcal/mol | 4th-5th decimal only |
@@ -23,8 +23,8 @@ here. Every CSV header records its commit and the sha256 of each binary it ran. 
 | Transport (treptow_*, mironenko_*, region_*, water_*) | all 37 checks: plugin = independent = authors' 51/0 | counts unchanged |
 | CAVER LinB / DhaA (tunnel_vs_caver*) | cluster counts and ARI unchanged | timings within a few % |
 
-`tunnel_vs_caver_timing.csv` re-run 2026-10-28 with a local CAVER 3.0.2 (git 4c41b84 = e55e26e + results;
-stage-only 10.2-12.4x, complete-command 17.8-22.1x; was 10.5-13.6x / 18.7-24.4x). The three pre-review probes (capsule_f4, o2_rebuild, upstream_capability) were removed: no reported number used them.
+`tunnel_vs_caver_timing.csv` and `single_frame_steps.csv` re-run 2026-10-28 with the tree at e55e26e, so every
+results file cites the same code commit (CAVER 3.0.2 local; stage-only 10.5-13.4x, complete-command 18.3-23.7x). The three pre-review probes (capsule_f4, o2_rebuild, upstream_capability) were removed: no reported number used them.
 The superseded unaligned 1BL8 comparison (`poreanalyser_ellipse.csv`) was re-run; PoreAnalyser's
 own scheduler makes it vary run to run, which is why the paper now uses `poreanalyser_review.csv`.
 
@@ -184,11 +184,11 @@ Timing range: **8.90-15.25x**; tunnel counts agree on every structure: yes.
 
 | threshold | VMDPathFinder s | CAVER stage-only s | CAVER full s | stage-only ratio | full ratio |
 |---|---|---|---|---|---|
-| 2.0 | 0.012662 | 0.157184 | 0.280237 | 12.41x | 22.13x |
-| 4.0 | 0.014494 | 0.147645 | 0.258568 | 10.19x | 17.84x |
+| 2.0 | 0.010975 | 0.147138 | 0.260189 | 13.41x | 23.71x |
+| 4.0 | 0.014293 | 0.149504 | 0.262144 | 10.46x | 18.34x |
 
-Stage-only band **10.2-12.4x**; complete-command band **17.8-22.1x** (2026-10-28, v1.1.0; ours 12.7-14.5 ms).
-The per-threshold order flipped from the previous run (10.54/13.64x): at ~13 ms a full process launch is noise-limited.
+Stage-only band **10.5-13.4x**; complete-command band **18.3-23.7x** (2026-10-28, e55e26e; ours 11.0-14.3 ms).
+At ~12 ms a full process launch is noise-limited: an earlier same-day run gave 10.2-12.4x / 17.8-22.1x.
 
 Compiled vs Tcl tunnel engine (search): 1BL8 173.4x; 1MXT_noHET 231.4x - `tunnel_tcl_vs_compiled.csv`.
 Cross-frame clustering on the real 50-frame pool (1837 pathways), the kernel now answered by the resident mesher process:
@@ -253,7 +253,7 @@ stock sos_triangle overflows above dotden ~12; always carry this caveat).
 | 15-worker speedup | 6.96 | 6.39 | 6.51 |
 | triangulation, density 40 | 72.0 | 73.40 | (Tier 1, not re-run) |
 | MOLE 2 fold, 1BL8 | 14.28 | 13.69 | (Tier 1, not re-run) |
-| CAVER stage-only, 2.0 A | 10.54 | 10.54 | 12.41 |
+| CAVER stage-only, 2.0 A | 10.54 | 10.54 | 13.41 |
 | cross-frame clustering compiled vs Tcl | 26.5 | 23.27 | 27.70 |
 | CHAP min-radius r | 0.998 | 1.00 | (Tier 1, not re-run) |
 
