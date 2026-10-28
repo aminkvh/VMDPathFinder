@@ -24,7 +24,7 @@ here. Every CSV header records its commit and the sha256 of each binary it ran. 
 | CAVER LinB / DhaA (tunnel_vs_caver*) | cluster counts and ARI unchanged | timings within a few % |
 
 `tunnel_vs_caver_timing.csv` re-run 2026-10-28 with a local CAVER 3.0.2 (git 4c41b84 = e55e26e + results;
-stage-only 10.2-12.4x, complete-command 17.8-22.1x; was 10.5-13.6x / 18.7-24.4x). Not re-run: the pre-review probes `capsule_f4.csv`, `o2_rebuild.csv`, `upstream_capability.csv`.
+stage-only 10.2-12.4x, complete-command 17.8-22.1x; was 10.5-13.6x / 18.7-24.4x). The three pre-review probes (capsule_f4, o2_rebuild, upstream_capability) were removed: no reported number used them.
 The superseded unaligned 1BL8 comparison (`poreanalyser_ellipse.csv`) was re-run; PoreAnalyser's
 own scheduler makes it vary run to run, which is why the paper now uses `poreanalyser_review.csv`.
 
