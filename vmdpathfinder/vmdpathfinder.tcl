@@ -442,6 +442,7 @@ namespace eval ::VMDPathFinder:: {
         hydro3d_props_cache       {form dict  tags {run}}
         trend_cache               {form list  tags {run}}
         ion_flow_cache            {form str   tags {run}}
+        _ion_flow_region_cache    {form dict  tags {run}}
         _fit_cache                {form unset tags {run}}
         asym_cache                {form unset tags {run}}
         asym_batch_cache          {form unset tags {keyed}}
