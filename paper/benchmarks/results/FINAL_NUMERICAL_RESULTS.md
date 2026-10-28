@@ -23,8 +23,8 @@ here. Every CSV header records its commit and the sha256 of each binary it ran. 
 | Transport (treptow_*, mironenko_*, region_*, water_*) | all 37 checks: plugin = independent = authors' 51/0 | counts unchanged |
 | CAVER LinB / DhaA (tunnel_vs_caver*) | cluster counts and ARI unchanged | timings within a few % |
 
-Not re-run here: `tunnel_vs_caver_timing.csv` (needs a local CAVER 3.0.2 run; previous values
-kept), and the pre-review probes `capsule_f4.csv`, `o2_rebuild.csv`, `upstream_capability.csv`.
+`tunnel_vs_caver_timing.csv` re-run 2026-10-28 with a local CAVER 3.0.2 (git 4c41b84 = e55e26e + results;
+stage-only 10.2-12.4x, complete-command 17.8-22.1x; was 10.5-13.6x / 18.7-24.4x). Not re-run: the pre-review probes `capsule_f4.csv`, `o2_rebuild.csv`, `upstream_capability.csv`.
 The superseded unaligned 1BL8 comparison (`poreanalyser_ellipse.csv`) was re-run; PoreAnalyser's
 own scheduler makes it vary run to run, which is why the paper now uses `poreanalyser_review.csv`.
 
@@ -184,10 +184,11 @@ Timing range: **8.90-15.25x**; tunnel counts agree on every structure: yes.
 
 | threshold | VMDPathFinder s | CAVER stage-only s | CAVER full s | stage-only ratio | full ratio |
 |---|---|---|---|---|---|
-| 2.0 | 0.014005 | 0.147579 | 0.262494 | 10.54x | 18.74x |
-| 4.0 | 0.010709 | 0.146122 | 0.261677 | 13.64x | 24.43x |
+| 2.0 | 0.012662 | 0.157184 | 0.280237 | 12.41x | 22.13x |
+| 4.0 | 0.014494 | 0.147645 | 0.258568 | 10.19x | 17.84x |
 
-Stage-only band **10.5-13.6x**; complete-command band **18.7-24.4x**.
+Stage-only band **10.2-12.4x**; complete-command band **17.8-22.1x** (2026-10-28, v1.1.0; ours 12.7-14.5 ms).
+The per-threshold order flipped from the previous run (10.54/13.64x): at ~13 ms a full process launch is noise-limited.
 
 Compiled vs Tcl tunnel engine (search): 1BL8 173.4x; 1MXT_noHET 231.4x - `tunnel_tcl_vs_compiled.csv`.
 Cross-frame clustering on the real 50-frame pool (1837 pathways), the kernel now answered by the resident mesher process:
@@ -252,7 +253,7 @@ stock sos_triangle overflows above dotden ~12; always carry this caveat).
 | 15-worker speedup | 6.96 | 6.39 | 6.51 |
 | triangulation, density 40 | 72.0 | 73.40 | (Tier 1, not re-run) |
 | MOLE 2 fold, 1BL8 | 14.28 | 13.69 | (Tier 1, not re-run) |
-| CAVER stage-only, 2.0 A | 10.54 | 10.54 | (Tier 1, not re-run) |
+| CAVER stage-only, 2.0 A | 10.54 | 10.54 | 12.41 |
 | cross-frame clustering compiled vs Tcl | 26.5 | 23.27 | 27.70 |
 | CHAP min-radius r | 0.998 | 1.00 | (Tier 1, not re-run) |
 

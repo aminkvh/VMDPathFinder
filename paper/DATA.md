@@ -116,8 +116,8 @@ benchmark that silently runs on less data is worse than one that refuses.
 Everything that produced `benchmarks/results/*.csv` but is not itself a
 reported number lives in one archive with one DOI:
 
-**Zenodo: DOI to be minted on upload — placeholder: `10.5281/zenodo.XXXXXXX`**
-(archive file: `VMDPathFinder-replication-kit-1.0.0.tar.gz`)
+**Zenodo: https://doi.org/10.5281/zenodo.22088514** (all versions; version 1.1.0 holds
+`VMDPathFinder-replication-kit-1.1.0.tar.gz`, built from release v1.1.0)
 
 Contents: the complete `paper/benchmarks/` harness (reproduce.sh, every
 bench_* stage, comparison fixtures including the frozen 50-frame tunnel pool
